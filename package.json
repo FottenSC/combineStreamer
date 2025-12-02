@@ -2,12 +2,14 @@
   "name": "app",
   "version": "0.1.0",
   "private": true,
+  "homepage": "https://fottensc.github.io/combineStreamer",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "deploy": "git add -A && git commit -m \"Deploy update\" && git push origin master"
+    "predeploy": "npm run build",
+    "deploy": "gh-pages -d out --dotfiles"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.90.11",
@@ -25,6 +27,7 @@
     "clsx": "^2.1.1",
     "eslint": "^9",
     "eslint-config-next": "16.0.6",
+    "gh-pages": "^6.3.0",
     "lucide-react": "^0.555.0",
     "postcss": "^8.5.6",
     "tailwind-merge": "^3.4.0",
