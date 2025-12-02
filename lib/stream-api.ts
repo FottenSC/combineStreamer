@@ -487,6 +487,113 @@ async function fetchYouTubeStreams(): Promise<Stream[]> {
 }
 
 /**
+ * Fetch Kick streams for SoulCalibur VI
+ * Kick's API has strict bot protection, so we try multiple approaches
+ */
+async function fetchKickStreams(): Promise<Stream[]> {
+  const categorySlug = "soulcalibur-vi";
+  
+  // Try direct API first (may work from browser context)
+  const endpoints = [
+    `https://kick.com/api/v2/categories/${categorySlug}/livestreams`,
+    `https://kick.com/api/v1/subcategories/${categorySlug}`,
+  ];
+
+  for (const endpoint of endpoints) {
+    try {
+      console.log(`[Client] Trying Kick API: ${endpoint}`);
+      
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 8000);
+
+      const response = await fetch(endpoint, {
+        headers: {
+          "Accept": "application/json",
+        },
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        console.warn(`[Client] Kick API returned ${response.status}`);
+        continue;
+      }
+
+      const data = await response.json();
+      
+      // Handle v2 livestreams response
+      if (Array.isArray(data)) {
+        const streams: Stream[] = data.map((stream: {
+          id: number;
+          session_title?: string;
+          channel?: {
+            slug: string;
+            user?: {
+              username: string;
+              profile_pic?: string;
+            };
+          };
+          thumbnail?: { url?: string };
+          viewer_count?: number;
+        }) => ({
+          id: `kick-${stream.id}`,
+          platform: "kick" as Platform,
+          streamerName: stream.channel?.user?.username || stream.channel?.slug || "Unknown",
+          profilePictureUrl: stream.channel?.user?.profile_pic,
+          title: stream.session_title || "Untitled Stream",
+          thumbnailUrl: stream.thumbnail?.url || "",
+          viewerCount: stream.viewer_count || 0,
+          streamUrl: `https://kick.com/${stream.channel?.slug || ""}`,
+          isLive: true,
+        }));
+
+        console.log(`[Client] Found ${streams.length} Kick streams`);
+        return streams;
+      }
+
+      // Handle v1 subcategory response (has livestreams nested)
+      if (data.livestreams && Array.isArray(data.livestreams)) {
+        const streams: Stream[] = data.livestreams.map((stream: {
+          id: number;
+          session_title?: string;
+          slug?: string;
+          channel?: {
+            slug: string;
+            user?: {
+              username: string;
+              profile_pic?: string;
+            };
+          };
+          thumbnail?: { url?: string };
+          viewer_count?: number;
+        }) => ({
+          id: `kick-${stream.id}`,
+          platform: "kick" as Platform,
+          streamerName: stream.channel?.user?.username || stream.channel?.slug || "Unknown",
+          profilePictureUrl: stream.channel?.user?.profile_pic,
+          title: stream.session_title || "Untitled Stream",
+          thumbnailUrl: stream.thumbnail?.url || "",
+          viewerCount: stream.viewer_count || 0,
+          streamUrl: `https://kick.com/${stream.channel?.slug || ""}`,
+          isLive: true,
+        }));
+
+        console.log(`[Client] Found ${streams.length} Kick streams`);
+        return streams;
+      }
+
+    } catch (error) {
+      console.warn(`[Client] Kick API failed:`, error);
+      continue;
+    }
+  }
+
+  console.warn("[Client] All Kick API attempts failed (likely CORS/bot protection)");
+  return [];
+}
+
+/**
  * Fetch all streams from multiple platforms (client-side direct calls)
  * For static hosting (GitHub Pages) - calls APIs directly from browser
  */
@@ -494,16 +601,17 @@ export async function fetchAllStreams(): Promise<Stream[]> {
   try {
     console.log("[Client] Fetching streams from all platforms...");
 
-    // Fetch from both platforms in parallel
+    // Fetch from all platforms in parallel
     const results = await Promise.allSettled([
       fetchYouTubeStreams(),
       fetchTwitchStreams(),
+      fetchKickStreams(),
     ]);
 
     const allStreams: Stream[] = [];
 
     results.forEach((result, index) => {
-      const platformName = ["YouTube", "Twitch"][index];
+      const platformName = ["YouTube", "Twitch", "Kick"][index];
       if (result.status === "fulfilled") {
         console.log(`[Client] ${platformName}: ${result.value.length} streams`);
         allStreams.push(...result.value);
