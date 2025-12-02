@@ -1,14 +1,14 @@
 import { Stream } from "@/types/stream";
-import { Eye, ExternalLink } from "lucide-react";
+import { Eye } from "lucide-react";
 
 interface StreamCardProps {
   stream: Stream;
 }
 
-const platformColors = {
-  twitch: "bg-purple-600",
-  youtube: "bg-red-600",
-  kick: "bg-green-600",
+const platformClasses = {
+  twitch: "platform-twitch",
+  youtube: "platform-youtube",
+  kick: "platform-kick",
 };
 
 const platformNames = {
@@ -25,60 +25,58 @@ export function StreamCard({ stream }: StreamCardProps) {
       rel="noopener noreferrer"
       className="block group h-full"
     >
-      <div className="h-full flex flex-col overflow-hidden transition-all duration-300 hover:shadow-2xl hover:shadow-amber-500/10 hover:scale-105 bg-[#161b22] border border-gray-800 rounded-lg">
+      <div className="h-full flex flex-col overflow-hidden sc6-border sc6-card rounded-sm">
         {/* Thumbnail */}
-        <div className="relative aspect-video w-full overflow-hidden bg-[#0d1117] flex-shrink-0">
+        <div className="relative aspect-video w-full overflow-hidden bg-[#0a0908] flex-shrink-0">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={stream.thumbnailUrl}
             alt={stream.title}
-            className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
+            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
           />
-          <div className="absolute top-2 left-2 flex gap-2">
-            <span className={`${platformColors[stream.platform]} text-white text-xs font-bold px-2 py-1 rounded`}>
+          {/* Overlay gradient */}
+          <div className="absolute inset-0 bg-gradient-to-t from-[#0a0908]/80 via-transparent to-transparent opacity-60" />
+          
+          {/* Platform Badge */}
+          <div className="absolute top-3 left-3 flex gap-2">
+            <span className={`${platformClasses[stream.platform]} text-white text-xs font-['Cinzel'] tracking-wider px-3 py-1.5 rounded-sm`}>
               {platformNames[stream.platform]}
             </span>
             {stream.isLive && (
-              <span className="bg-red-600 text-white text-xs font-bold px-2 py-1 rounded animate-pulse">
-                🔴 LIVE
+              <span className="bg-gradient-to-r from-[#8b2020] to-[#6b1818] border border-[rgba(200,80,80,0.4)] text-white text-xs font-bold px-2 py-1.5 rounded-sm live-indicator">
+                ● LIVE
               </span>
             )}
           </div>
-          <div className="absolute bottom-2 right-2 flex items-center gap-1 bg-black/70 px-2 py-1 rounded-md">
-            <Eye className="w-4 h-4 text-white" />
-            <span className="text-white text-sm font-semibold">
+          
+          {/* Viewer Count */}
+          <div className="absolute bottom-3 right-3 flex items-center gap-1.5 bg-[#0a0908]/80 border border-[rgba(218,185,110,0.2)] px-2.5 py-1 rounded-sm">
+            <Eye className="w-4 h-4 text-[#c9a84c]" />
+            <span className="text-[#d4c4a0] text-sm font-semibold">
               {stream.viewerCount.toLocaleString()}
             </span>
           </div>
         </div>
 
         {/* Content */}
-        <div className="p-4 flex-1 flex flex-col">
-          <h3 className="font-bold text-lg text-gray-100 line-clamp-2 mb-2 group-hover:text-amber-500 transition-colors min-h-[3.5rem]">
+        <div className="p-4 flex-1 flex flex-col bg-gradient-to-b from-transparent to-[rgba(0,0,0,0.2)]">
+          <h3 className="font-['Cinzel'] font-semibold text-base text-[#e8dcc8] line-clamp-2 mb-3 group-hover:text-[#f5e4a8] transition-colors min-h-[3rem]">
             {stream.title}
           </h3>
-          <div className="flex items-center gap-2 mt-auto">
+          <div className="flex items-center gap-3 mt-auto">
             {stream.profilePictureUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={stream.profilePictureUrl}
                 alt={stream.streamerName}
-                className="w-6 h-6 rounded-full object-cover ring-1 ring-gray-700"
+                className="w-8 h-8 rounded-full object-cover ring-2 ring-[rgba(218,185,110,0.3)]"
               />
             ) : (
-              <div className="w-6 h-6 rounded-full bg-gray-700 flex items-center justify-center text-gray-400 text-xs font-medium">
+              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#3d3424] to-[#252015] border border-[rgba(218,185,110,0.3)] flex items-center justify-center text-[#c9a84c] text-sm font-['Cinzel']">
                 {stream.streamerName.charAt(0).toUpperCase()}
               </div>
             )}
-            <p className="text-gray-400 text-sm truncate">{stream.streamerName}</p>
-          </div>
-        </div>
-
-        {/* Footer */}
-        <div className="px-4 pb-4 flex-shrink-0">
-          <div className="flex items-center gap-2 text-amber-500 text-sm font-medium group-hover:text-amber-400 transition-colors">
-            <span>Watch Stream</span>
-            <ExternalLink className="w-4 h-4" />
+            <p className="text-[#a09080] text-sm truncate font-['Cormorant_Garamond'] italic">{stream.streamerName}</p>
           </div>
         </div>
       </div>
