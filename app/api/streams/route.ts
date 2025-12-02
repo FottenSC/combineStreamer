@@ -83,6 +83,7 @@ async function fetchYouTubeStreams(): Promise<Stream[]> {
 // Types for Twitch GQL responses
 interface TwitchGqlStream {
   id: string;
+  title?: string;
   viewersCount: number;
   createdAt: string;
   type: string;
@@ -139,51 +140,66 @@ interface TwitchGqlTopStreamsResponse {
  */
 async function fetchTwitchStreamsGql(gameSlug?: string): Promise<Stream[]> {
   try {
-    const body = gameSlug
-      ? {
-          extensions: {
-            persistedQuery: {
-              sha256Hash: "76cb069d835b8a02914c08dc42c421d0dafda8af5b113a3f19141824b901402f",
-              version: 1,
-            },
-          },
-          operationName: "DirectoryPage_Game",
-          variables: {
-            cursor: null,
-            imageWidth: 50,
-            includeCostreaming: true,
-            limit: 30,
-            options: {
-              broadcasterLanguages: [],
-              freeformTags: [],
-              sort: "VIEWER_COUNT",
-            },
-            slug: gameSlug,
-            sortTypeIsRecency: false,
-          },
+    // Use a custom GraphQL query that explicitly requests stream titles
+    const query = gameSlug
+      ? `
+        query GameStreams($slug: String!, $limit: Int!) {
+          game(slug: $slug) {
+            streams(first: $limit, options: { sort: VIEWER_COUNT }) {
+              edges {
+                node {
+                  id
+                  title
+                  viewersCount
+                  createdAt
+                  type
+                  previewImageURL(width: 320, height: 180)
+                  broadcaster {
+                    id
+                    login
+                    displayName
+                    profileImageURL(width: 70)
+                  }
+                }
+              }
+            }
+          }
         }
-      : {
-          extensions: {
-            persistedQuery: {
-              sha256Hash: "fb60a7f9b2fe8f9c9a080f41585bd4564bea9d3030f4d7cb8ab7f9e99b1cee67",
-              version: 1,
-            },
-          },
-          operationName: "BrowsePage_Popular",
-          variables: {
-            cursor: null,
-            imageWidth: 50,
-            includeCostreaming: true,
-            limit: 30,
-            options: {
-              broadcasterLanguages: [],
-              freeformTags: [],
-              sort: "VIEWER_COUNT",
-            },
-            platformType: "all",
-            sortTypeIsRecency: false,
-          },
-        };
+      `
+      : `
+        query TopStreams($limit: Int!) {
+          streams(first: $limit, options: { sort: VIEWER_COUNT }) {
+            edges {
+              node {
+                id
+                title
+                viewersCount
+                createdAt
+                type
+                previewImageURL(width: 320, height: 180)
+                broadcaster {
+                  id
+                  login
+                  displayName
+                  profileImageURL(width: 70)
+                }
+                game {
+                  displayName
+                }
+              }
+            }
+          }
+        }
+      `;
+
+    const variables = gameSlug
+      ? { slug: gameSlug, limit: 30 }
+      : { limit: 30 };
+
+    const body = {
+      query,
+      variables,
+    };
 
     console.log(`[Server] Fetching Twitch streams via GQL${gameSlug ? ` for game: ${gameSlug}` : ""}...`);
 
@@ -220,7 +236,7 @@ async function fetchTwitchStreamsGql(gameSlug?: string): Promise<Stream[]> {
           platform: "twitch" as Platform,
           streamerName: edge.node.broadcaster?.displayName || "Unknown",
           profilePictureUrl: edge.node.broadcaster?.profileImageURL,
-          title: edge.node.broadcaster?.broadcastSettings?.title || "Untitled Stream",
+          title: edge.node.title || edge.node.broadcaster?.broadcastSettings?.title || "Untitled Stream",
           thumbnailUrl: edge.node.previewImageURL || `https://static-cdn.jtvnw.net/previews-ttv/live_user_${edge.node.broadcaster?.login || "unknown"}-320x180.jpg`,
           viewerCount: edge.node.viewersCount || 0,
           streamUrl: `https://twitch.tv/${edge.node.broadcaster?.login || ""}`,
@@ -246,7 +262,7 @@ async function fetchTwitchStreamsGql(gameSlug?: string): Promise<Stream[]> {
         platform: "twitch" as Platform,
         streamerName: edge.node.broadcaster?.displayName || "Unknown",
         profilePictureUrl: edge.node.broadcaster?.profileImageURL,
-        title: edge.node.broadcaster?.broadcastSettings?.title || "Untitled Stream",
+        title: edge.node.title || edge.node.broadcaster?.broadcastSettings?.title || "Untitled Stream",
         thumbnailUrl: edge.node.previewImageURL || `https://static-cdn.jtvnw.net/previews-ttv/live_user_${edge.node.broadcaster?.login || "unknown"}-320x180.jpg`,
         viewerCount: edge.node.viewersCount || 0,
         streamUrl: `https://twitch.tv/${edge.node.broadcaster?.login || ""}`,
