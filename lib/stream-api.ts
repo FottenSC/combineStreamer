@@ -9,6 +9,7 @@ const TWITCH_CLIENT_ID = "kimne78kx3ncx6brgo4mv6wki5h1ko";
 // Types for Twitch GQL responses
 interface TwitchGqlStream {
   id: string;
+  title?: string;
   viewersCount: number;
   createdAt: string;
   type: string;
@@ -149,7 +150,7 @@ async function fetchTwitchStreamsGql(gameSlug?: string): Promise<Stream[]> {
           id: `twitch-${edge.node.id}`,
           platform: "twitch" as Platform,
           streamerName: edge.node.broadcaster?.displayName || "Unknown",
-          title: edge.node.broadcaster?.broadcastSettings?.title || "Untitled Stream",
+          title: edge.node.title || edge.node.broadcaster?.broadcastSettings?.title || "Untitled Stream",
           thumbnailUrl: edge.node.previewImageURL || `https://static-cdn.jtvnw.net/previews-ttv/live_user_${edge.node.broadcaster?.login || "unknown"}-320x180.jpg`,
           viewerCount: edge.node.viewersCount || 0,
           streamUrl: `https://twitch.tv/${edge.node.broadcaster?.login || ""}`,
@@ -174,7 +175,7 @@ async function fetchTwitchStreamsGql(gameSlug?: string): Promise<Stream[]> {
         id: `twitch-${edge.node.id}`,
         platform: "twitch" as Platform,
         streamerName: edge.node.broadcaster?.displayName || "Unknown",
-        title: edge.node.broadcaster?.broadcastSettings?.title || "Untitled Stream",
+        title: edge.node.title || edge.node.broadcaster?.broadcastSettings?.title || "Untitled Stream",
         thumbnailUrl: edge.node.previewImageURL || `https://static-cdn.jtvnw.net/previews-ttv/live_user_${edge.node.broadcaster?.login || "unknown"}-320x180.jpg`,
         viewerCount: edge.node.viewersCount || 0,
         streamUrl: `https://twitch.tv/${edge.node.broadcaster?.login || ""}`,
@@ -399,11 +400,10 @@ export { fetchTwitchStreamsGql, searchTwitchGameStreams };
 // Public Invidious instances to try (in order of preference)
 // Some may have CORS restrictions when called from browser
 const INVIDIOUS_INSTANCES = [
-  "https://iv.nboeck.de",
-  "https://invidious.privacyredirect.com",
   "https://y.com.sb",
   "https://invidious.slipfox.xyz",
   "https://invidious.projectsegfau.lt",
+  "https://invidious.privacyredirect.com",
 ];
 
 /**
@@ -411,42 +411,54 @@ const INVIDIOUS_INSTANCES = [
  * Note: Some instances may block CORS requests
  */
 async function fetchYouTubeStreams(): Promise<Stream[]> {
-  const searchQueries = ["soulcalibur 6", "soul calibur 6", "soulcalibur vi", "sc6"];
+  // Multiple search queries to catch variations and typos
+  const searchQueries = ["soulcalibur 6", "soul calibur 6", "soulcalibur vi", "sc6", "calibur 6"];
 
   for (const instance of INVIDIOUS_INSTANCES) {
     try {
-      const query = searchQueries[0];
-      const url = `${instance}/api/v1/search?q=${encodeURIComponent(query)}&type=video&features=live`;
-
-      console.log(`[Client] Trying Invidious instance ${instance}...`);
-
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000);
-
-      const response = await fetch(url, {
-        headers: {
-          Accept: "application/json",
-        },
-        signal: controller.signal,
+      // Search with all queries in parallel and combine results
+      const searchPromises = searchQueries.map(async (query) => {
+        const url = `${instance}/api/v1/search?q=${encodeURIComponent(query)}&type=video&features=live`;
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 8000);
+        
+        try {
+          const response = await fetch(url, {
+            headers: { Accept: "application/json" },
+            signal: controller.signal,
+          });
+          clearTimeout(timeoutId);
+          
+          if (!response.ok) return [];
+          const data = await response.json();
+          return Array.isArray(data) ? data : [];
+        } catch {
+          clearTimeout(timeoutId);
+          return [];
+        }
       });
 
-      clearTimeout(timeoutId);
+      console.log(`[Client] Trying Invidious instance ${instance} with ${searchQueries.length} queries...`);
+      
+      const results = await Promise.all(searchPromises);
+      const allResults = results.flat();
+      
+      // Deduplicate by videoId
+      const seenIds = new Set<string>();
+      const uniqueResults = allResults.filter((video: { videoId?: string }) => {
+        if (!video.videoId || seenIds.has(video.videoId)) return false;
+        seenIds.add(video.videoId);
+        return true;
+      });
 
-      if (!response.ok) {
-        console.warn(`[Client] Invidious instance ${instance} returned ${response.status}`);
+      if (uniqueResults.length === 0) {
+        console.warn(`[Client] No results from ${instance}`);
         continue;
       }
 
-      const data = await response.json();
-
-      if (!Array.isArray(data)) {
-        console.warn(`[Client] Invidious instance ${instance} returned invalid data`);
-        continue;
-      }
-
-      const streams: Stream[] = data
+      const streams: Stream[] = uniqueResults
         .filter((video: { liveNow?: boolean }) => video.liveNow === true)
-        .slice(0, 10)
+        .slice(0, 20)
         .map((video: { videoId: string; author: string; authorId?: string; authorThumbnails?: { url: string }[]; title: string; videoThumbnails?: { url: string }[]; viewCount?: number }) => ({
           id: `youtube-${video.videoId}`,
           platform: "youtube" as Platform,
