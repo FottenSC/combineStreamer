@@ -396,35 +396,112 @@ export async function fetchTwitchChannelStreams(logins: string[]): Promise<Strea
 // Export GQL functions for direct use
 export { fetchTwitchStreamsGql, searchTwitchGameStreams };
 
+// Public Invidious instances to try (in order of preference)
+// Some may have CORS restrictions when called from browser
+const INVIDIOUS_INSTANCES = [
+  "https://iv.nboeck.de",
+  "https://invidious.privacyredirect.com",
+  "https://y.com.sb",
+  "https://invidious.slipfox.xyz",
+  "https://invidious.projectsegfau.lt",
+];
+
 /**
- * Fetch all streams from multiple platforms via server-side API route
- * This avoids CORS issues with external APIs
+ * Fetch YouTube streams via Invidious API (client-side)
+ * Note: Some instances may block CORS requests
+ */
+async function fetchYouTubeStreams(): Promise<Stream[]> {
+  const searchQueries = ["soulcalibur 6", "soul calibur 6", "soulcalibur vi", "sc6"];
+
+  for (const instance of INVIDIOUS_INSTANCES) {
+    try {
+      const query = searchQueries[0];
+      const url = `${instance}/api/v1/search?q=${encodeURIComponent(query)}&type=video&features=live`;
+
+      console.log(`[Client] Trying Invidious instance ${instance}...`);
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+      const response = await fetch(url, {
+        headers: {
+          Accept: "application/json",
+        },
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        console.warn(`[Client] Invidious instance ${instance} returned ${response.status}`);
+        continue;
+      }
+
+      const data = await response.json();
+
+      if (!Array.isArray(data)) {
+        console.warn(`[Client] Invidious instance ${instance} returned invalid data`);
+        continue;
+      }
+
+      const streams: Stream[] = data
+        .filter((video: { liveNow?: boolean }) => video.liveNow === true)
+        .slice(0, 10)
+        .map((video: { videoId: string; author: string; authorId?: string; authorThumbnails?: { url: string }[]; title: string; videoThumbnails?: { url: string }[]; viewCount?: number }) => ({
+          id: `youtube-${video.videoId}`,
+          platform: "youtube" as Platform,
+          streamerName: video.author,
+          profilePictureUrl: video.authorThumbnails?.[0]?.url,
+          title: video.title,
+          thumbnailUrl: video.videoThumbnails?.[0]?.url || `https://i.ytimg.com/vi/${video.videoId}/mqdefault.jpg`,
+          viewerCount: video.viewCount || 0,
+          streamUrl: `https://www.youtube.com/watch?v=${video.videoId}`,
+          isLive: true,
+        }));
+
+      console.log(`[Client] Found ${streams.length} YouTube streams via ${instance}`);
+      return streams;
+    } catch (error) {
+      console.warn(`[Client] Failed to fetch from ${instance}:`, error);
+      continue;
+    }
+  }
+
+  console.warn("[Client] All Invidious instances failed (may be CORS blocked)");
+  return [];
+}
+
+/**
+ * Fetch all streams from multiple platforms (client-side direct calls)
+ * For static hosting (GitHub Pages) - calls APIs directly from browser
  */
 export async function fetchAllStreams(): Promise<Stream[]> {
   try {
-    console.log("[Client] Fetching streams via server API...");
-    
-    const response = await fetch("/api/streams", {
-      headers: {
-        Accept: "application/json",
-      },
-      signal: AbortSignal.timeout(30000),
+    console.log("[Client] Fetching streams from all platforms...");
+
+    // Fetch from both platforms in parallel
+    const results = await Promise.allSettled([
+      fetchYouTubeStreams(),
+      fetchTwitchStreams(),
+    ]);
+
+    const allStreams: Stream[] = [];
+
+    results.forEach((result, index) => {
+      const platformName = ["YouTube", "Twitch"][index];
+      if (result.status === "fulfilled") {
+        console.log(`[Client] ${platformName}: ${result.value.length} streams`);
+        allStreams.push(...result.value);
+      } else {
+        console.warn(`[Client] ${platformName} failed:`, result.reason);
+      }
     });
 
-    if (!response.ok) {
-      console.warn(`[Client] Server API returned ${response.status}`);
-      return [];
-    }
+    // Sort by viewer count (highest first)
+    allStreams.sort((a, b) => b.viewerCount - a.viewerCount);
 
-    const data = await response.json();
-    
-    if (!data.streams || !Array.isArray(data.streams)) {
-      console.warn("[Client] Invalid response from server API");
-      return [];
-    }
-
-    console.log(`[Client] Received ${data.streams.length} streams from server`);
-    return data.streams;
+    console.log(`[Client] Total streams found: ${allStreams.length}`);
+    return allStreams;
   } catch (error) {
     console.error("[Client] Error fetching streams:", error);
     return [];

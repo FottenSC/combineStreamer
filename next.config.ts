@@ -1,9 +1,14 @@
 import type { NextConfig } from "next";
 
+const isProd = process.env.NODE_ENV === 'production';
+
 const nextConfig: NextConfig = {
-  // Note: 'output: export' removed to enable API routes for server-side fetching
-  // This avoids CORS issues with external APIs (Invidious, Twitch)
-  basePath: process.env.NODE_ENV === 'production' ? '/combineStreamer' : '',
+  // For GitHub Pages static hosting, we need output: 'export'
+  // But this means API routes won't work - calls are made directly from client
+  output: 'export',
+  basePath: isProd ? '/combineStreamer' : '',
+  assetPrefix: isProd ? '/combineStreamer' : '',
+  trailingSlash: true,
   images: {
     unoptimized: true,
     remotePatterns: [
