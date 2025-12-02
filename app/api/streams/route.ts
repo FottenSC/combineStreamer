@@ -1,10 +1,83 @@
+import { NextResponse } from "next/server";
 import { Stream, Platform } from "@/types/stream";
 
-// Twitch GQL API configuration (similar to Xtra app approach)
-// This uses Twitch's internal GraphQL API which doesn't require OAuth tokens
+// Helper function to create a timeout signal
+function createTimeoutSignal(ms: number): AbortSignal {
+  const controller = new AbortController();
+  setTimeout(() => controller.abort(), ms);
+  return controller.signal;
+}
+
+// Public Invidious instances to try (in order of preference)
+const INVIDIOUS_INSTANCES = [
+  "https://iv.nboeck.de",
+  "https://invidious.privacyredirect.com",
+  "https://y.com.sb",
+  "https://invidious.slipfox.xyz",
+  "https://invidious.projectsegfau.lt",
+];
+
+// Twitch GQL API configuration
 const TWITCH_GQL_URL = "https://gql.twitch.tv/gql";
-// Public Client-ID used by web clients (from Twitch's web app)
 const TWITCH_CLIENT_ID = "kimne78kx3ncx6brgo4mv6wki5h1ko";
+
+/**
+ * Fetch YouTube streams via Invidious API (server-side to avoid CORS)
+ */
+async function fetchYouTubeStreams(): Promise<Stream[]> {
+  const searchQueries = ["soulcalibur 6", "soul calibur 6", "soulcalibur vi", "sc6"];
+
+  for (const instance of INVIDIOUS_INSTANCES) {
+    try {
+      const query = searchQueries[0];
+      const url = `${instance}/api/v1/search?q=${encodeURIComponent(query)}&type=video&features=live`;
+
+      console.log(`[Server] Trying ${instance}...`);
+
+      const response = await fetch(url, {
+        headers: {
+          Accept: "application/json",
+        },
+        signal: createTimeoutSignal(10000),
+      });
+
+      if (!response.ok) {
+        console.warn(`[Server] Invidious instance ${instance} returned ${response.status}`);
+        continue;
+      }
+
+      const data = await response.json();
+
+      if (!Array.isArray(data)) {
+        console.warn(`[Server] Invidious instance ${instance} returned invalid data`);
+        continue;
+      }
+
+      const streams: Stream[] = data
+        .filter((video: { liveNow?: boolean }) => video.liveNow === true)
+        .slice(0, 10)
+        .map((video: { videoId: string; author: string; title: string; videoThumbnails?: { url: string }[]; viewCount?: number }) => ({
+          id: `youtube-${video.videoId}`,
+          platform: "youtube" as Platform,
+          streamerName: video.author,
+          title: video.title,
+          thumbnailUrl: video.videoThumbnails?.[0]?.url || `https://i.ytimg.com/vi/${video.videoId}/mqdefault.jpg`,
+          viewerCount: video.viewCount || 0,
+          streamUrl: `https://www.youtube.com/watch?v=${video.videoId}`,
+          isLive: true,
+        }));
+
+      console.log(`[Server] Found ${streams.length} YouTube streams via ${instance}`);
+      return streams;
+    } catch (error) {
+      console.warn(`[Server] Failed to fetch from ${instance}:`, error);
+      continue;
+    }
+  }
+
+  console.warn("[Server] All Invidious instances failed");
+  return [];
+}
 
 // Types for Twitch GQL responses
 interface TwitchGqlStream {
@@ -61,13 +134,10 @@ interface TwitchGqlTopStreamsResponse {
 }
 
 /**
- * Fetch Twitch streams using GQL API (similar to Xtra app)
- * This uses Twitch's internal GraphQL API with persisted queries
+ * Fetch Twitch streams using GQL API
  */
 async function fetchTwitchStreamsGql(gameSlug?: string): Promise<Stream[]> {
   try {
-    // Using persisted query approach like Xtra
-    // This query fetches streams for a specific game by slug
     const body = gameSlug
       ? {
           extensions: {
@@ -92,7 +162,6 @@ async function fetchTwitchStreamsGql(gameSlug?: string): Promise<Stream[]> {
           },
         }
       : {
-          // Fallback to top streams if no game specified
           extensions: {
             persistedQuery: {
               sha256Hash: "fb60a7f9b2fe8f9c9a080f41585bd4564bea9d3030f4d7cb8ab7f9e99b1cee67",
@@ -115,7 +184,7 @@ async function fetchTwitchStreamsGql(gameSlug?: string): Promise<Stream[]> {
           },
         };
 
-    console.log(`[Client] Fetching Twitch streams via GQL${gameSlug ? ` for game: ${gameSlug}` : ""}...`);
+    console.log(`[Server] Fetching Twitch streams via GQL${gameSlug ? ` for game: ${gameSlug}` : ""}...`);
 
     const response = await fetch(TWITCH_GQL_URL, {
       method: "POST",
@@ -125,11 +194,11 @@ async function fetchTwitchStreamsGql(gameSlug?: string): Promise<Stream[]> {
         Accept: "application/json",
       },
       body: JSON.stringify(body),
-      signal: AbortSignal.timeout(15000),
+      signal: createTimeoutSignal(15000),
     });
 
     if (!response.ok) {
-      console.warn(`[Client] Twitch GQL API returned ${response.status}`);
+      console.warn(`[Server] Twitch GQL API returned ${response.status}`);
       return [];
     }
 
@@ -139,7 +208,7 @@ async function fetchTwitchStreamsGql(gameSlug?: string): Promise<Stream[]> {
     if (gameSlug) {
       const gameData = data as TwitchGqlGameStreamsResponse;
       if (!gameData.data?.game?.streams?.edges) {
-        console.warn("[Client] No game data found in Twitch GQL response");
+        console.warn("[Server] No game data found in Twitch GQL response");
         return [];
       }
 
@@ -157,14 +226,14 @@ async function fetchTwitchStreamsGql(gameSlug?: string): Promise<Stream[]> {
           startedAt: edge.node.createdAt,
         }));
 
-      console.log(`[Client] Found ${streams.length} Twitch streams via GQL`);
+      console.log(`[Server] Found ${streams.length} Twitch streams via GQL`);
       return streams;
     }
 
     // Handle top streams response
     const topData = data as TwitchGqlTopStreamsResponse;
     if (!topData.data?.streams?.edges) {
-      console.warn("[Client] No streams found in Twitch GQL response");
+      console.warn("[Server] No streams found in Twitch GQL response");
       return [];
     }
 
@@ -182,10 +251,10 @@ async function fetchTwitchStreamsGql(gameSlug?: string): Promise<Stream[]> {
         startedAt: edge.node.createdAt,
       }));
 
-    console.log(`[Client] Found ${streams.length} Twitch streams via GQL`);
+    console.log(`[Server] Found ${streams.length} Twitch streams via GQL`);
     return streams;
   } catch (error) {
-    console.warn("[Client] Failed to fetch Twitch streams via GQL:", error);
+    console.warn("[Server] Failed to fetch Twitch streams via GQL:", error);
     return [];
   }
 }
@@ -195,7 +264,6 @@ async function fetchTwitchStreamsGql(gameSlug?: string): Promise<Stream[]> {
  */
 async function searchTwitchGameStreams(gameName: string): Promise<Stream[]> {
   try {
-    // First, search for the game to get its slug
     const searchBody = {
       extensions: {
         persistedQuery: {
@@ -214,7 +282,7 @@ async function searchTwitchGameStreams(gameName: string): Promise<Stream[]> {
       },
     };
 
-    console.log(`[Client] Searching Twitch for game: ${gameName}...`);
+    console.log(`[Server] Searching Twitch for game: ${gameName}...`);
 
     const searchResponse = await fetch(TWITCH_GQL_URL, {
       method: "POST",
@@ -224,11 +292,11 @@ async function searchTwitchGameStreams(gameName: string): Promise<Stream[]> {
         Accept: "application/json",
       },
       body: JSON.stringify(searchBody),
-      signal: AbortSignal.timeout(10000),
+      signal: createTimeoutSignal(10000),
     });
 
     if (!searchResponse.ok) {
-      console.warn(`[Client] Twitch game search returned ${searchResponse.status}`);
+      console.warn(`[Server] Twitch game search returned ${searchResponse.status}`);
       return [];
     }
 
@@ -236,18 +304,16 @@ async function searchTwitchGameStreams(gameName: string): Promise<Stream[]> {
     const games = searchData.data?.searchFor?.games?.items || [];
 
     if (games.length === 0) {
-      console.warn(`[Client] No games found matching: ${gameName}`);
+      console.warn(`[Server] No games found matching: ${gameName}`);
       return [];
     }
 
-    // Use the first matching game's slug
     const gameSlug = games[0].slug;
-    console.log(`[Client] Found game: ${games[0].displayName} (${gameSlug})`);
+    console.log(`[Server] Found game: ${games[0].displayName} (${gameSlug})`);
 
-    // Now fetch streams for this game
     return fetchTwitchStreamsGql(gameSlug);
   } catch (error) {
-    console.warn(`[Client] Failed to search Twitch for game "${gameName}":`, error);
+    console.warn(`[Server] Failed to search Twitch for game "${gameName}":`, error);
     return [];
   }
 }
@@ -256,179 +322,43 @@ async function searchTwitchGameStreams(gameName: string): Promise<Stream[]> {
  * Fetch Twitch streams - tries multiple approaches
  */
 async function fetchTwitchStreams(): Promise<Stream[]> {
-  // Try to fetch streams for SoulCalibur VI using the known slug
-  // SoulCalibur VI slug on Twitch is "soulcalibur-vi"
   const streams = await fetchTwitchStreamsGql("soulcalibur-vi");
 
   if (streams.length > 0) {
     return streams;
   }
 
-  // Fallback: try searching for the game
-  console.log("[Client] Trying to search for SoulCalibur VI...");
+  console.log("[Server] Trying to search for SoulCalibur VI...");
   return searchTwitchGameStreams("SoulCalibur VI");
 }
 
-// Types for user stream response
-interface TwitchGqlUserStreamResponse {
-  data: {
-    users: Array<{
-      id: string;
-      login: string;
-      displayName: string;
-      profileImageURL: string;
-      stream: {
-        id: string;
-        viewersCount: number;
-        createdAt: string;
-        type: string;
-        previewImageURL: string;
-        broadcaster: {
-          broadcastSettings: {
-            title: string;
-          };
-        };
-        game?: {
-          id: string;
-          displayName: string;
-          slug: string;
-        };
-        freeformTags?: { name: string }[];
-      } | null;
-    }>;
-  };
-}
-
-/**
- * Fetch streams for specific Twitch channels by login names
- * Uses GQL UsersStream query (similar to Xtra)
- */
-export async function fetchTwitchChannelStreams(logins: string[]): Promise<Stream[]> {
-  if (logins.length === 0) return [];
-
+export async function GET() {
   try {
-    // Using Apollo-style GraphQL query like Xtra
-    const query = `
-      query UsersStream($logins: [String!]) {
-        users(logins: $logins) {
-          displayName
-          id
-          login
-          profileImageURL(width: 300)
-          stream {
-            broadcaster {
-              broadcastSettings {
-                title
-              }
-            }
-            createdAt
-            game {
-              id
-              displayName
-              slug
-            }
-            id
-            previewImageURL
-            freeformTags {
-              name
-            }
-            type
-            viewersCount
-          }
-        }
+    const results = await Promise.allSettled([
+      fetchYouTubeStreams(),
+      fetchTwitchStreams(),
+    ]);
+
+    const allStreams: Stream[] = [];
+
+    results.forEach((result, index) => {
+      const platformName = ["YouTube", "Twitch"][index];
+      if (result.status === "fulfilled") {
+        console.log(`[Server] ${platformName}: ${result.value.length} streams`);
+        allStreams.push(...result.value);
+      } else {
+        console.warn(`[Server] ${platformName} fetch failed:`, result.reason);
       }
-    `;
-
-    const body = {
-      query: query,
-      variables: {
-        logins: logins,
-      },
-    };
-
-    console.log(`[Client] Fetching streams for ${logins.length} Twitch channels...`);
-
-    const response = await fetch(TWITCH_GQL_URL, {
-      method: "POST",
-      headers: {
-        "Client-Id": TWITCH_CLIENT_ID,
-        "Content-Type": "application/json",
-        Accept: "application/json",
-      },
-      body: JSON.stringify(body),
-      signal: AbortSignal.timeout(15000),
     });
 
-    if (!response.ok) {
-      console.warn(`[Client] Twitch GQL API returned ${response.status}`);
-      return [];
-    }
+    // Sort by viewer count descending
+    allStreams.sort((a, b) => b.viewerCount - a.viewerCount);
 
-    const data = (await response.json()) as TwitchGqlUserStreamResponse;
-
-    if (!data.data?.users) {
-      console.warn("[Client] No users found in Twitch GQL response");
-      return [];
-    }
-
-    const streams: Stream[] = data.data.users
-      .filter((user) => user.stream && user.stream.type === "live")
-      .map((user) => ({
-        id: `twitch-${user.stream!.id}`,
-        platform: "twitch" as Platform,
-        streamerName: user.displayName,
-        title: user.stream!.broadcaster.broadcastSettings.title || "Untitled Stream",
-        thumbnailUrl: user.stream!.previewImageURL || `https://static-cdn.jtvnw.net/previews-ttv/live_user_${user.login}-320x180.jpg`,
-        viewerCount: user.stream!.viewersCount,
-        streamUrl: `https://twitch.tv/${user.login}`,
-        isLive: true,
-        startedAt: user.stream!.createdAt,
-      }));
-
-    console.log(`[Client] Found ${streams.length} live streams from ${logins.length} channels`);
-    return streams;
+    console.log(`[Server] Total streams: ${allStreams.length}`);
+    
+    return NextResponse.json({ streams: allStreams });
   } catch (error) {
-    console.warn("[Client] Failed to fetch Twitch channel streams:", error);
-    return [];
+    console.error("[Server] Error fetching streams:", error);
+    return NextResponse.json({ streams: [], error: "Failed to fetch streams" }, { status: 500 });
   }
 }
-
-// Export GQL functions for direct use
-export { fetchTwitchStreamsGql, searchTwitchGameStreams };
-
-/**
- * Fetch all streams from multiple platforms via server-side API route
- * This avoids CORS issues with external APIs
- */
-export async function fetchAllStreams(): Promise<Stream[]> {
-  try {
-    console.log("[Client] Fetching streams via server API...");
-    
-    const response = await fetch("/api/streams", {
-      headers: {
-        Accept: "application/json",
-      },
-      signal: AbortSignal.timeout(30000),
-    });
-
-    if (!response.ok) {
-      console.warn(`[Client] Server API returned ${response.status}`);
-      return [];
-    }
-
-    const data = await response.json();
-    
-    if (!data.streams || !Array.isArray(data.streams)) {
-      console.warn("[Client] Invalid response from server API");
-      return [];
-    }
-
-    console.log(`[Client] Received ${data.streams.length} streams from server`);
-    return data.streams;
-  } catch (error) {
-    console.error("[Client] Error fetching streams:", error);
-    return [];
-  }
-}
-
-

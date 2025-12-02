@@ -1,7 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  output: 'export',
+  // Note: 'output: export' removed to enable API routes for server-side fetching
+  // This avoids CORS issues with external APIs (Invidious, Twitch)
   basePath: process.env.NODE_ENV === 'production' ? '/combineStreamer' : '',
   images: {
     unoptimized: true,
