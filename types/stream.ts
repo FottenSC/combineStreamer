@@ -4,6 +4,7 @@ export interface Stream {
   id: string;
   platform: Platform;
   streamerName: string;
+  profilePictureUrl?: string;
   title: string;
   thumbnailUrl: string;
   viewerCount: number;

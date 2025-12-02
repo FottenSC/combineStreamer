@@ -60,7 +60,17 @@ export function StreamCard({ stream }: StreamCardProps) {
           <h3 className="font-bold text-lg text-white line-clamp-2 mb-2 group-hover:text-purple-400 transition-colors">
             {stream.title}
           </h3>
-          <p className="text-slate-400 text-sm">{stream.streamerName}</p>
+          <div className="flex items-center gap-2">
+            {stream.profilePictureUrl && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={stream.profilePictureUrl}
+                alt={stream.streamerName}
+                className="w-6 h-6 rounded-full object-cover"
+              />
+            )}
+            <p className="text-slate-400 text-sm">{stream.streamerName}</p>
+          </div>
         </CardContent>
         <CardFooter className="p-4 pt-0">
           <div className="flex items-center gap-2 text-purple-400 text-sm font-medium group-hover:text-purple-300 transition-colors">

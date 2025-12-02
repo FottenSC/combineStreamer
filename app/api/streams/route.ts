@@ -56,10 +56,11 @@ async function fetchYouTubeStreams(): Promise<Stream[]> {
       const streams: Stream[] = data
         .filter((video: { liveNow?: boolean }) => video.liveNow === true)
         .slice(0, 10)
-        .map((video: { videoId: string; author: string; title: string; videoThumbnails?: { url: string }[]; viewCount?: number }) => ({
+        .map((video: { videoId: string; author: string; authorId?: string; authorThumbnails?: { url: string }[]; title: string; videoThumbnails?: { url: string }[]; viewCount?: number }) => ({
           id: `youtube-${video.videoId}`,
           platform: "youtube" as Platform,
           streamerName: video.author,
+          profilePictureUrl: video.authorThumbnails?.[0]?.url,
           title: video.title,
           thumbnailUrl: video.videoThumbnails?.[0]?.url || `https://i.ytimg.com/vi/${video.videoId}/mqdefault.jpg`,
           viewerCount: video.viewCount || 0,
@@ -218,6 +219,7 @@ async function fetchTwitchStreamsGql(gameSlug?: string): Promise<Stream[]> {
           id: `twitch-${edge.node.id}`,
           platform: "twitch" as Platform,
           streamerName: edge.node.broadcaster?.displayName || "Unknown",
+          profilePictureUrl: edge.node.broadcaster?.profileImageURL,
           title: edge.node.broadcaster?.broadcastSettings?.title || "Untitled Stream",
           thumbnailUrl: edge.node.previewImageURL || `https://static-cdn.jtvnw.net/previews-ttv/live_user_${edge.node.broadcaster?.login || "unknown"}-320x180.jpg`,
           viewerCount: edge.node.viewersCount || 0,
@@ -243,6 +245,7 @@ async function fetchTwitchStreamsGql(gameSlug?: string): Promise<Stream[]> {
         id: `twitch-${edge.node.id}`,
         platform: "twitch" as Platform,
         streamerName: edge.node.broadcaster?.displayName || "Unknown",
+        profilePictureUrl: edge.node.broadcaster?.profileImageURL,
         title: edge.node.broadcaster?.broadcastSettings?.title || "Untitled Stream",
         thumbnailUrl: edge.node.previewImageURL || `https://static-cdn.jtvnw.net/previews-ttv/live_user_${edge.node.broadcaster?.login || "unknown"}-320x180.jpg`,
         viewerCount: edge.node.viewersCount || 0,
