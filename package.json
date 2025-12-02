@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "deploy": "git add -A && git commit -m \"Deploy update\" && git push origin master"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.90.11",
