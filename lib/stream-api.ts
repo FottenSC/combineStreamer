@@ -488,120 +488,15 @@ async function fetchYouTubeStreams(): Promise<Stream[]> {
 
 /**
  * Fetch Kick streams for SoulCalibur VI
- * Kick's API has strict bot protection, so we use CORS proxies
+ * 
+ * NOTE: Kick has aggressive bot/CORS protection that blocks all proxy attempts.
+ * This function is disabled until a backend proxy solution is implemented.
+ * Options: Cloudflare Workers, Vercel Serverless Functions, or dedicated server.
  */
 async function fetchKickStreams(): Promise<Stream[]> {
-  const categorySlug = "soulcalibur-vi";
-  const kickApiUrl = `https://kick.com/api/v2/categories/${categorySlug}/livestreams`;
-  
-  // CORS proxies to try (some may be unreliable)
-  const corsProxies = [
-    (url: string) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
-    (url: string) => `https://corsproxy.io/?${encodeURIComponent(url)}`,
-    (url: string) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
-  ];
-
-  for (const proxyFn of corsProxies) {
-    const proxyUrl = proxyFn(kickApiUrl);
-    try {
-      console.log(`[Client] Trying Kick via proxy...`);
-      
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000);
-
-      const response = await fetch(proxyUrl, {
-        headers: {
-          "Accept": "application/json",
-        },
-        signal: controller.signal,
-      });
-
-      clearTimeout(timeoutId);
-
-      if (!response.ok) {
-        console.warn(`[Client] Kick proxy returned ${response.status}`);
-        continue;
-      }
-
-      const text = await response.text();
-      
-      // Check if we got HTML instead of JSON (blocked)
-      if (text.startsWith('<!') || text.startsWith('<html')) {
-        console.warn(`[Client] Kick proxy returned HTML (blocked)`);
-        continue;
-      }
-
-      const data = JSON.parse(text);
-      
-      // Handle v2 livestreams response (array of streams)
-      if (Array.isArray(data)) {
-        const streams: Stream[] = data.map((stream: {
-          id: number;
-          session_title?: string;
-          channel?: {
-            slug: string;
-            user?: {
-              username: string;
-              profile_pic?: string;
-            };
-          };
-          thumbnail?: { url?: string };
-          viewer_count?: number;
-        }) => ({
-          id: `kick-${stream.id}`,
-          platform: "kick" as Platform,
-          streamerName: stream.channel?.user?.username || stream.channel?.slug || "Unknown",
-          profilePictureUrl: stream.channel?.user?.profile_pic,
-          title: stream.session_title || "Untitled Stream",
-          thumbnailUrl: stream.thumbnail?.url || "",
-          viewerCount: stream.viewer_count || 0,
-          streamUrl: `https://kick.com/${stream.channel?.slug || ""}`,
-          isLive: true,
-        }));
-
-        console.log(`[Client] Found ${streams.length} Kick streams`);
-        return streams;
-      }
-
-      // Handle response with data wrapper
-      if (data.data && Array.isArray(data.data)) {
-        const streams: Stream[] = data.data.map((stream: {
-          id: number;
-          session_title?: string;
-          channel?: {
-            slug: string;
-            user?: {
-              username: string;
-              profile_pic?: string;
-            };
-          };
-          thumbnail?: { url?: string };
-          viewer_count?: number;
-        }) => ({
-          id: `kick-${stream.id}`,
-          platform: "kick" as Platform,
-          streamerName: stream.channel?.user?.username || stream.channel?.slug || "Unknown",
-          profilePictureUrl: stream.channel?.user?.profile_pic,
-          title: stream.session_title || "Untitled Stream",
-          thumbnailUrl: stream.thumbnail?.url || "",
-          viewerCount: stream.viewer_count || 0,
-          streamUrl: `https://kick.com/${stream.channel?.slug || ""}`,
-          isLive: true,
-        }));
-
-        console.log(`[Client] Found ${streams.length} Kick streams`);
-        return streams;
-      }
-
-      console.warn(`[Client] Unexpected Kick response format`);
-
-    } catch (error) {
-      console.warn(`[Client] Kick proxy failed:`, error);
-      continue;
-    }
-  }
-
-  console.warn("[Client] All Kick API attempts failed (CORS/bot protection)");
+  // Kick API is blocked by their security policy from client-side requests
+  // Returning empty array to avoid console spam from failed attempts
+  console.log("[Client] Kick API requires backend proxy (not available on static hosting)");
   return [];
 }
 
@@ -614,16 +509,17 @@ export async function fetchAllStreams(): Promise<Stream[]> {
     console.log("[Client] Fetching streams from all platforms...");
 
     // Fetch from all platforms in parallel
+    // Note: Kick disabled - requires backend proxy
     const results = await Promise.allSettled([
       fetchYouTubeStreams(),
       fetchTwitchStreams(),
-      fetchKickStreams(),
+      // fetchKickStreams(), // Disabled - Kick API requires backend proxy
     ]);
 
     const allStreams: Stream[] = [];
 
     results.forEach((result, index) => {
-      const platformName = ["YouTube", "Twitch", "Kick"][index];
+      const platformName = ["YouTube", "Twitch"][index];
       if (result.status === "fulfilled") {
         console.log(`[Client] ${platformName}: ${result.value.length} streams`);
         allStreams.push(...result.value);
@@ -642,5 +538,3 @@ export async function fetchAllStreams(): Promise<Stream[]> {
     return [];
   }
 }
-
-

@@ -12,7 +12,7 @@ export function StreamList({ streams }: StreamListProps) {
   const [selectedPlatforms, setSelectedPlatforms] = useState<Platform[]>([
     "twitch",
     "youtube",
-    "kick",
+    // "kick", // Disabled - Kick API requires backend proxy
   ]);
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -49,7 +49,7 @@ export function StreamList({ streams }: StreamListProps) {
             <span className="text-[#807060] text-sm font-['Cinzel'] tracking-wider uppercase self-center mr-2">
               Filter:
             </span>
-            {(["twitch", "youtube", "kick"] as Platform[]).map((platform) => (
+            {(["twitch", "youtube"] as Platform[]).map((platform) => (
               <button
                 key={platform}
                 onClick={() => togglePlatform(platform)}
@@ -61,6 +61,15 @@ export function StreamList({ streams }: StreamListProps) {
                 <span className="ml-2 opacity-60">({platformStats[platform]})</span>
               </button>
             ))}
+            {/* Kick disabled - requires backend proxy */}
+            <button
+              disabled
+              className="sc6-button px-4 py-2 rounded-sm opacity-50 cursor-not-allowed"
+              title="Kick API requires backend proxy (coming soon)"
+            >
+              <span className="line-through">Kick</span>
+              <span className="ml-2 opacity-60">(0)</span>
+            </button>
           </div>
 
           {/* Search */}
