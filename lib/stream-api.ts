@@ -488,25 +488,28 @@ async function fetchYouTubeStreams(): Promise<Stream[]> {
 
 /**
  * Fetch Kick streams for SoulCalibur VI
- * Kick's API has strict bot protection, so we try multiple approaches
+ * Kick's API has strict bot protection, so we use CORS proxies
  */
 async function fetchKickStreams(): Promise<Stream[]> {
   const categorySlug = "soulcalibur-vi";
+  const kickApiUrl = `https://kick.com/api/v2/categories/${categorySlug}/livestreams`;
   
-  // Try direct API first (may work from browser context)
-  const endpoints = [
-    `https://kick.com/api/v2/categories/${categorySlug}/livestreams`,
-    `https://kick.com/api/v1/subcategories/${categorySlug}`,
+  // CORS proxies to try (some may be unreliable)
+  const corsProxies = [
+    (url: string) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+    (url: string) => `https://corsproxy.io/?${encodeURIComponent(url)}`,
+    (url: string) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
   ];
 
-  for (const endpoint of endpoints) {
+  for (const proxyFn of corsProxies) {
+    const proxyUrl = proxyFn(kickApiUrl);
     try {
-      console.log(`[Client] Trying Kick API: ${endpoint}`);
+      console.log(`[Client] Trying Kick via proxy...`);
       
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 8000);
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
 
-      const response = await fetch(endpoint, {
+      const response = await fetch(proxyUrl, {
         headers: {
           "Accept": "application/json",
         },
@@ -516,13 +519,21 @@ async function fetchKickStreams(): Promise<Stream[]> {
       clearTimeout(timeoutId);
 
       if (!response.ok) {
-        console.warn(`[Client] Kick API returned ${response.status}`);
+        console.warn(`[Client] Kick proxy returned ${response.status}`);
         continue;
       }
 
-      const data = await response.json();
+      const text = await response.text();
       
-      // Handle v2 livestreams response
+      // Check if we got HTML instead of JSON (blocked)
+      if (text.startsWith('<!') || text.startsWith('<html')) {
+        console.warn(`[Client] Kick proxy returned HTML (blocked)`);
+        continue;
+      }
+
+      const data = JSON.parse(text);
+      
+      // Handle v2 livestreams response (array of streams)
       if (Array.isArray(data)) {
         const streams: Stream[] = data.map((stream: {
           id: number;
@@ -552,12 +563,11 @@ async function fetchKickStreams(): Promise<Stream[]> {
         return streams;
       }
 
-      // Handle v1 subcategory response (has livestreams nested)
-      if (data.livestreams && Array.isArray(data.livestreams)) {
-        const streams: Stream[] = data.livestreams.map((stream: {
+      // Handle response with data wrapper
+      if (data.data && Array.isArray(data.data)) {
+        const streams: Stream[] = data.data.map((stream: {
           id: number;
           session_title?: string;
-          slug?: string;
           channel?: {
             slug: string;
             user?: {
@@ -583,13 +593,15 @@ async function fetchKickStreams(): Promise<Stream[]> {
         return streams;
       }
 
+      console.warn(`[Client] Unexpected Kick response format`);
+
     } catch (error) {
-      console.warn(`[Client] Kick API failed:`, error);
+      console.warn(`[Client] Kick proxy failed:`, error);
       continue;
     }
   }
 
-  console.warn("[Client] All Kick API attempts failed (likely CORS/bot protection)");
+  console.warn("[Client] All Kick API attempts failed (CORS/bot protection)");
   return [];
 }
 
