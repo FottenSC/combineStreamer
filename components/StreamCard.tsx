@@ -23,7 +23,7 @@ export function StreamCard({ stream }: StreamCardProps) {
       href={stream.streamUrl}
       target="_blank"
       rel="noopener noreferrer"
-      className="block group h-full"
+      className="block group h-full animate-fade-in"
     >
       <div className="h-full flex flex-col overflow-hidden sc6-border sc6-card rounded-sm">
         {/* Thumbnail */}

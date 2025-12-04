@@ -1,13 +1,13 @@
 {
-  "timestamp": "2025-12-03T12:32:18.388677",
+  "timestamp": "2025-12-04T13:16:19.308015",
   "channel_id": "UCJ0Y3WUgX0eqgQ76mz1PaFA",
   "results": [
     {
       "instance": "https://y.com.sb",
       "url": "https://y.com.sb/api/v1/channels/UCJ0Y3WUgX0eqgQ76mz1PaFA/streams",
       "success": false,
-      "status_code": 500,
-      "error": "HTTP 500",
+      "status_code": null,
+      "error": "Request timeout",
       "total_videos": 0,
       "live_streams": 0,
       "stream_titles": []
@@ -16,8 +16,8 @@
       "instance": "https://invidious.slipfox.xyz",
       "url": "https://invidious.slipfox.xyz/api/v1/channels/UCJ0Y3WUgX0eqgQ76mz1PaFA/streams",
       "success": false,
-      "status_code": 403,
-      "error": "HTTP 403",
+      "status_code": null,
+      "error": "Request timeout",
       "total_videos": 0,
       "live_streams": 0,
       "stream_titles": []
@@ -27,7 +27,7 @@
       "url": "https://invidious.projectsegfau.lt/api/v1/channels/UCJ0Y3WUgX0eqgQ76mz1PaFA/streams",
       "success": false,
       "status_code": null,
-      "error": "Connection error: HTTPSConnectionPool(host='invidious.projectsegfau.lt', port=443): Max retries exceeded with url: /api/v1/channels/UCJ0Y3WUgX0eqgQ76mz1PaFA/streams (Caused by NameResolutionError(\"<urllib3.connection.HTTPSConnection object at 0x00000197C7A9EE10>: Failed to resolve 'invidious.projectsegfau.lt' ([Errno 11002] getaddrinfo failed)\"))",
+      "error": "Connection error: HTTPSConnectionPool(host='invidious.projectsegfau.lt', port=443): Max retries exceeded with url: /api/v1/channels/UCJ0Y3WUgX0eqgQ76mz1PaFA/streams (Caused by NameResolutionError(\"<urllib3.connection.HTTPSConnection object at 0x000002A59AFED3D0>: Failed to resolve 'invidious.projectsegfau.lt' ([Errno 11002] getaddrinfo failed)\"))",
       "total_videos": 0,
       "live_streams": 0,
       "stream_titles": []

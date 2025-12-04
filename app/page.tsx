@@ -2,15 +2,60 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { StreamList } from "@/components/StreamList";
-import { Loader2, RefreshCw } from "lucide-react";
-import { fetchAllStreams } from "@/lib/stream-api";
+import { RefreshCw, Check } from "lucide-react";
+import { fetchTwitchStreams, fetchYouTubeStreams } from "@/lib/stream-api";
+import { useEffect, useState, useMemo } from "react";
+import { Stream } from "@/types/stream";
 
 export default function Home() {
-  const { data: streams, isLoading, error, refetch, isFetching } = useQuery({
-    queryKey: ["streams"],
-    queryFn: fetchAllStreams,
+  // Separate queries for each platform
+  const twitchQuery = useQuery({
+    queryKey: ["streams", "twitch"],
+    queryFn: fetchTwitchStreams,
     refetchInterval: 60000,
   });
+
+  const youtubeQuery = useQuery({
+    queryKey: ["streams", "youtube"],
+    queryFn: fetchYouTubeStreams,
+    refetchInterval: 60000,
+  });
+
+  const [showSuccess, setShowSuccess] = useState(false);
+
+  // Combine streams from all platforms
+  const allStreams = useMemo(() => {
+    const streams: Stream[] = [];
+    if (twitchQuery.data) streams.push(...twitchQuery.data);
+    if (youtubeQuery.data) streams.push(...youtubeQuery.data);
+    
+    // Sort by viewer count
+    return streams.sort((a, b) => b.viewerCount - a.viewerCount);
+  }, [twitchQuery.data, youtubeQuery.data]);
+
+  // Check if any query is fetching
+  const isFetching = twitchQuery.isFetching || youtubeQuery.isFetching;
+  const isInitialLoading = twitchQuery.isLoading || youtubeQuery.isLoading;
+
+  // Show success indicator when all fetching completes
+  useEffect(() => {
+    if (!isFetching && !isInitialLoading && (twitchQuery.data || youtubeQuery.data)) {
+      setShowSuccess(true);
+      const timer = setTimeout(() => setShowSuccess(false), 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [isFetching, isInitialLoading, twitchQuery.data, youtubeQuery.data]);
+
+  const handleRefresh = () => {
+    twitchQuery.refetch();
+    youtubeQuery.refetch();
+  };
+
+  // Platform loading states
+  const platformLoadingStates = {
+    twitch: twitchQuery.isFetching,
+    youtube: youtubeQuery.isFetching,
+  };
 
   return (
     <div className="min-h-screen sc6-bg flex flex-col">
@@ -36,12 +81,18 @@ export default function Home() {
             
             {/* Refresh Button */}
             <button
-              onClick={() => refetch()}
+              onClick={handleRefresh}
               disabled={isFetching}
-              className="sc6-button px-4 py-2 rounded-sm flex items-center gap-2"
+              className="sc6-button px-4 py-2 rounded-sm flex items-center gap-2 relative overflow-hidden"
             >
-              <RefreshCw className={`w-4 h-4 ${isFetching ? 'animate-spin' : ''}`} />
-              <span className="hidden sm:inline">Refresh</span>
+              {showSuccess ? (
+                <Check className="w-4 h-4 text-[#5a9a5a] animate-in zoom-in duration-200" />
+              ) : (
+                <RefreshCw className={`w-4 h-4 transition-transform ${isFetching ? 'animate-spin' : ''}`} />
+              )}
+              <span className="hidden sm:inline">
+                {showSuccess ? 'Updated' : isFetching ? 'Refreshing...' : 'Refresh'}
+              </span>
             </button>
           </div>
         </div>
@@ -49,24 +100,11 @@ export default function Home() {
 
       {/* Main Content */}
       <main className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 flex-1 w-full">
-        {/* Error State */}
-        {error && (
-          <div className="text-center py-20 sc6-border rounded-sm max-w-lg mx-auto">
-            <p className="text-[#c85050] text-xl mb-4 font-['Cinzel']">Failed to Load Streams</p>
-            <p className="text-[#806050] text-sm mb-6 italic px-6">
-              {error instanceof Error ? error.message : "An unknown error occurred"}
-            </p>
-            <button
-              onClick={() => refetch()}
-              className="sc6-button px-8 py-3 rounded-sm"
-            >
-              Try Again
-            </button>
-          </div>
-        )}
-
-        {/* Stream List - always shown, handles its own loading state */}
-        {!error && <StreamList streams={streams || []} isLoading={isLoading} />}
+        {/* Stream List - always shown, never blocked */}
+        <StreamList 
+          streams={allStreams} 
+          platformLoadingStates={platformLoadingStates}
+        />
       </main>
 
       {/* Footer */}

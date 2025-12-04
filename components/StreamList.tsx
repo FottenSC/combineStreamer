@@ -2,15 +2,19 @@
 
 import { Stream, Platform } from "@/types/stream";
 import { StreamCard } from "@/components/StreamCard";
+import { StreamCardSkeleton } from "@/components/StreamCardSkeleton";
 import { useState } from "react";
 import { Loader2 } from "lucide-react";
 
 interface StreamListProps {
   streams: Stream[];
-  isLoading: boolean;
+  platformLoadingStates: {
+    twitch: boolean;
+    youtube: boolean;
+  };
 }
 
-export function StreamList({ streams, isLoading }: StreamListProps) {
+export function StreamList({ streams, platformLoadingStates }: StreamListProps) {
   const [selectedPlatforms, setSelectedPlatforms] = useState<Platform[]>([
     "twitch",
     "youtube",
@@ -45,62 +49,52 @@ export function StreamList({ streams, isLoading }: StreamListProps) {
     <div className="space-y-8">
       {/* Filters Panel */}
       <div className="sc6-border rounded-sm p-5">
-        {isLoading ? (
-          <div className="flex flex-col lg:flex-row gap-6 items-start lg:items-center justify-between">
-            {/* Platform Filter Skeleton */}
-            <div className="flex flex-wrap gap-3">
-              <span className="text-[#807060] text-sm font-['Cinzel'] tracking-wider uppercase self-center mr-2">
-                Filter:
-              </span>
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="h-10 w-24 bg-[rgba(218,185,110,0.1)] rounded-sm animate-pulse" />
-              ))}
-            </div>
-            {/* Search Skeleton */}
-            <div className="w-full lg:w-64 h-11 bg-[rgba(218,185,110,0.1)] rounded-sm animate-pulse" />
-          </div>
-        ) : (
-          <div className="flex flex-col lg:flex-row gap-6 items-start lg:items-center justify-between">
-            {/* Platform Filter Buttons */}
-            <div className="flex flex-wrap gap-3">
-              <span className="text-[#807060] text-sm font-['Cinzel'] tracking-wider uppercase self-center mr-2">
-                Filter:
-              </span>
-              {(["twitch", "youtube"] as Platform[]).map((platform) => (
-                <button
-                  key={platform}
-                  onClick={() => togglePlatform(platform)}
-                  className={`sc6-button px-4 py-2 rounded-sm ${
-                    selectedPlatforms.includes(platform) ? 'active' : ''
-                  }`}
-                >
-                  {platform.charAt(0).toUpperCase() + platform.slice(1)}
-                  <span className="ml-2 opacity-60">({platformStats[platform]})</span>
-                </button>
-              ))}
-              {/* Kick disabled - requires backend proxy */}
+        <div className="flex flex-col lg:flex-row gap-6 items-start lg:items-center justify-between">
+          {/* Platform Filter Buttons */}
+          <div className="flex flex-wrap gap-3">
+            <span className="text-[#807060] text-sm font-['Cinzel'] tracking-wider uppercase self-center mr-2">
+              Filter:
+            </span>
+            {(["twitch", "youtube"] as Platform[]).map((platform) => (
               <button
-                disabled
-                className="sc6-button px-4 py-2 rounded-sm opacity-50 cursor-not-allowed"
-                title="Kick API requires backend proxy (coming soon)"
+                key={platform}
+                onClick={() => togglePlatform(platform)}
+                className={`sc6-button px-4 py-2 rounded-sm ${
+                  selectedPlatforms.includes(platform) ? 'active' : ''
+                }`}
               >
-                <span className="line-through">Kick</span>
-                <span className="ml-2 opacity-60">(0)</span>
+                {platform.charAt(0).toUpperCase() + platform.slice(1)}
+                <span className="ml-2 opacity-60">
+                  {(platform === 'twitch' || platform === 'youtube') && platformLoadingStates[platform] ? (
+                    <Loader2 className="w-3 h-3 inline animate-spin" />
+                  ) : (
+                    `(${platformStats[platform]})`
+                  )}
+                </span>
               </button>
-            </div>
-
-            {/* Search */}
-            <div className="w-full lg:w-auto">
-              <input
-                type="text"
-                placeholder="Search for a streamer..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="sc6-input w-full lg:w-64 rounded-sm px-4 py-2.5 text-base"
-              />
-            </div>
+            ))}
+            {/* Kick disabled - requires backend proxy */}
+            <button
+              disabled
+              className="sc6-button px-4 py-2 rounded-sm opacity-50 cursor-not-allowed"
+              title="Kick API requires backend proxy (coming soon)"
+            >
+              <span className="line-through">Kick</span>
+              <span className="ml-2 opacity-60">(0)</span>
+            </button>
           </div>
-        )}
+
+          {/* Search */}
+          <div className="w-full lg:w-auto">
+            <input
+              type="text"
+              placeholder="Search for a streamer..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="sc6-input w-full lg:w-64 rounded-sm px-4 py-2.5 text-base"
+            />
+          </div>
+        </div>
       </div>
 
       {/* Stats Display */}
@@ -130,16 +124,47 @@ export function StreamList({ streams, isLoading }: StreamListProps) {
 
       {/* Stream Grid */}
       {filteredStreams.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {filteredStreams.map((stream) => (
-            <StreamCard key={`${stream.platform}-${stream.id}`} stream={stream} />
-          ))}
-        </div>
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {filteredStreams.map((stream) => (
+              <StreamCard key={`${stream.platform}-${stream.id}`} stream={stream} />
+            ))}
+          </div>
+          
+          {/* Loading indicator at bottom when fetching */}
+          {Object.values(platformLoadingStates).some(loading => loading) && (
+            <div className="flex items-center justify-center gap-3 py-8 mt-4">
+              <Loader2 className="w-5 h-5 text-[#c9a84c] animate-spin" />
+              <p className="text-[#a09080] text-sm font-['Cormorant_Garamond'] italic">
+                Searching for more streams...
+              </p>
+            </div>
+          )}
+        </>
       ) : (
-        <div className="text-center py-16 sc6-border rounded-sm">
-          <p className="text-[#a09080] text-xl font-['Cinzel']">No Streams Found</p>
-          <p className="text-[#706050] text-sm mt-2 italic">Try adjusting your search or filters</p>
-        </div>
+        // No streams yet - show loading cards or empty state
+        <>
+          {Object.values(platformLoadingStates).some(loading => loading) ? (
+            // Loading state - show skeleton cards in grid
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              {Array.from({ length: 8 }).map((_, i) => (
+                <StreamCardSkeleton key={i} />
+              ))}
+            </div>
+          ) : (
+            // No streams found state
+            <div className="text-center py-20 sc6-border rounded-sm max-w-2xl mx-auto">
+              <div className="space-y-4">
+                <p className="text-[#a09080] text-2xl font-['Cinzel']">No Streams Found</p>
+                <p className="text-[#706050] text-base font-['Cormorant_Garamond'] italic">
+                  {searchQuery 
+                    ? 'Try a different search term or adjust your filters' 
+                    : 'No live SoulCalibur VI streams at the moment'}
+                </p>
+              </div>
+            </div>
+          )}
+        </>
       )}
     </div>
   );

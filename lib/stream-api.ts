@@ -1,10 +1,14 @@
 import { Stream, Platform } from "@/types/stream";
+import { logger } from "@/lib/logger";
 
 // Twitch GQL API configuration (similar to Xtra app approach)
 // This uses Twitch's internal GraphQL API which doesn't require OAuth tokens
 const TWITCH_GQL_URL = "https://gql.twitch.tv/gql";
 // Public Client-ID used by web clients (from Twitch's web app)
 const TWITCH_CLIENT_ID = "kimne78kx3ncx6brgo4mv6wki5h1ko";
+
+// YouTube search keywords for finding SoulCalibur VI streams
+const YOUTUBE_SEARCH_KEYWORDS = ["soulcalibur 6", "soul calibur 6", "soulcalibur vi", "sc6", "calibur 6", "ソウルキャリバー6"];
 
 // Types for Twitch GQL responses
 interface TwitchGqlStream {
@@ -116,7 +120,7 @@ async function fetchTwitchStreamsGql(gameSlug?: string): Promise<Stream[]> {
           },
         };
 
-    console.log(`[Client] Fetching Twitch streams via GQL${gameSlug ? ` for game: ${gameSlug}` : ""}...`);
+    logger.log(`[Client] Fetching Twitch streams via GQL${gameSlug ? ` for game: ${gameSlug}` : ""}...`);
 
     const response = await fetch(TWITCH_GQL_URL, {
       method: "POST",
@@ -130,7 +134,7 @@ async function fetchTwitchStreamsGql(gameSlug?: string): Promise<Stream[]> {
     });
 
     if (!response.ok) {
-      console.warn(`[Client] Twitch GQL API returned ${response.status}`);
+      logger.warn(`[Client] Twitch GQL API returned ${response.status}`);
       return [];
     }
 
@@ -140,7 +144,7 @@ async function fetchTwitchStreamsGql(gameSlug?: string): Promise<Stream[]> {
     if (gameSlug) {
       const gameData = data as TwitchGqlGameStreamsResponse;
       if (!gameData.data?.game?.streams?.edges) {
-        console.warn("[Client] No game data found in Twitch GQL response");
+        logger.warn("[Client] No game data found in Twitch GQL response");
         return [];
       }
 
@@ -159,14 +163,14 @@ async function fetchTwitchStreamsGql(gameSlug?: string): Promise<Stream[]> {
           startedAt: edge.node.createdAt,
         }));
 
-      console.log(`[Client] Found ${streams.length} Twitch streams via GQL`);
+      logger.log(`[Client] Found ${streams.length} Twitch streams via GQL`);
       return streams;
     }
 
     // Handle top streams response
     const topData = data as TwitchGqlTopStreamsResponse;
     if (!topData.data?.streams?.edges) {
-      console.warn("[Client] No streams found in Twitch GQL response");
+      logger.warn("[Client] No streams found in Twitch GQL response");
       return [];
     }
 
@@ -185,10 +189,10 @@ async function fetchTwitchStreamsGql(gameSlug?: string): Promise<Stream[]> {
         startedAt: edge.node.createdAt,
       }));
 
-    console.log(`[Client] Found ${streams.length} Twitch streams via GQL`);
+    logger.log(`[Client] Found ${streams.length} Twitch streams via GQL`);
     return streams;
   } catch (error) {
-    console.warn("[Client] Failed to fetch Twitch streams via GQL:", error);
+    logger.warn("[Client] Failed to fetch Twitch streams via GQL:", error);
     return [];
   }
 }
@@ -217,7 +221,7 @@ async function searchTwitchGameStreams(gameName: string): Promise<Stream[]> {
       },
     };
 
-    console.log(`[Client] Searching Twitch for game: ${gameName}...`);
+    logger.log(`[Client] Searching Twitch for game: ${gameName}...`);
 
     const searchResponse = await fetch(TWITCH_GQL_URL, {
       method: "POST",
@@ -231,7 +235,7 @@ async function searchTwitchGameStreams(gameName: string): Promise<Stream[]> {
     });
 
     if (!searchResponse.ok) {
-      console.warn(`[Client] Twitch game search returned ${searchResponse.status}`);
+      logger.warn(`[Client] Twitch game search returned ${searchResponse.status}`);
       return [];
     }
 
@@ -239,18 +243,18 @@ async function searchTwitchGameStreams(gameName: string): Promise<Stream[]> {
     const games = searchData.data?.searchFor?.games?.items || [];
 
     if (games.length === 0) {
-      console.warn(`[Client] No games found matching: ${gameName}`);
+      logger.warn(`[Client] No games found matching: ${gameName}`);
       return [];
     }
 
     // Use the first matching game's slug
     const gameSlug = games[0].slug;
-    console.log(`[Client] Found game: ${games[0].displayName} (${gameSlug})`);
+    logger.log(`[Client] Found game: ${games[0].displayName} (${gameSlug})`);
 
     // Now fetch streams for this game
     return fetchTwitchStreamsGql(gameSlug);
   } catch (error) {
-    console.warn(`[Client] Failed to search Twitch for game "${gameName}":`, error);
+    logger.warn(`[Client] Failed to search Twitch for game "${gameName}":`, error);
     return [];
   }
 }
@@ -258,7 +262,7 @@ async function searchTwitchGameStreams(gameName: string): Promise<Stream[]> {
 /**
  * Fetch Twitch streams - tries multiple approaches
  */
-async function fetchTwitchStreams(): Promise<Stream[]> {
+export async function fetchTwitchStreams(): Promise<Stream[]> {
   // Try to fetch streams for SoulCalibur VI using the known slug
   // SoulCalibur VI slug on Twitch is "soulcalibur-vi"
   const streams = await fetchTwitchStreamsGql("soulcalibur-vi");
@@ -268,7 +272,7 @@ async function fetchTwitchStreams(): Promise<Stream[]> {
   }
 
   // Fallback: try searching for the game
-  console.log("[Client] Trying to search for SoulCalibur VI...");
+  logger.log("[Client] Trying to search for SoulCalibur VI...");
   return searchTwitchGameStreams("SoulCalibur VI");
 }
 
@@ -349,7 +353,7 @@ export async function fetchTwitchChannelStreams(logins: string[]): Promise<Strea
       },
     };
 
-    console.log(`[Client] Fetching streams for ${logins.length} Twitch channels...`);
+    logger.log(`[Client] Fetching streams for ${logins.length} Twitch channels...`);
 
     const response = await fetch(TWITCH_GQL_URL, {
       method: "POST",
@@ -363,14 +367,14 @@ export async function fetchTwitchChannelStreams(logins: string[]): Promise<Strea
     });
 
     if (!response.ok) {
-      console.warn(`[Client] Twitch GQL API returned ${response.status}`);
+      logger.warn(`[Client] Twitch GQL API returned ${response.status}`);
       return [];
     }
 
     const data = (await response.json()) as TwitchGqlUserStreamResponse;
 
     if (!data.data?.users) {
-      console.warn("[Client] No users found in Twitch GQL response");
+      logger.warn("[Client] No users found in Twitch GQL response");
       return [];
     }
 
@@ -389,10 +393,10 @@ export async function fetchTwitchChannelStreams(logins: string[]): Promise<Strea
         startedAt: user.stream!.createdAt,
       }));
 
-    console.log(`[Client] Found ${streams.length} live streams from ${logins.length} channels`);
+    logger.log(`[Client] Found ${streams.length} live streams from ${logins.length} channels`);
     return streams;
   } catch (error) {
-    console.warn("[Client] Failed to fetch Twitch channel streams:", error);
+    logger.warn("[Client] Failed to fetch Twitch channel streams:", error);
     return [];
   }
 }
@@ -492,7 +496,7 @@ async function fetchYouTubeGameChannelStreams(): Promise<Stream[]> {
         });
         
         if (channelStreams.length > 0) {
-          console.log(`[Client] Found ${channelStreams.length} live streams from channel ${channelId}`);
+          logger.log(`[Client] Found ${channelStreams.length} live streams from channel ${channelId}`);
         }
         
         channelSuccess = true;
@@ -509,13 +513,11 @@ async function fetchYouTubeGameChannelStreams(): Promise<Stream[]> {
  * Search for YouTube live streams by title using Invidious API
  */
 async function fetchYouTubeTitleSearch(): Promise<Stream[]> {
-  const searchQueries = ["soulcalibur 6", "soul calibur 6", "soulcalibur vi", "sc6", "calibur 6"];
-
   
   for (const instance of INVIDIOUS_INSTANCES) {
     try {
       // Search with all queries in parallel
-      const searchPromises = searchQueries.map(async (query) => {
+      const searchPromises = YOUTUBE_SEARCH_KEYWORDS.map(async (query) => {
         // Enhanced search with filters:
         // - type=video: Only videos
         // - features=live: Only live streams
@@ -573,7 +575,7 @@ async function fetchYouTubeTitleSearch(): Promise<Stream[]> {
         }));
 
       if (streams.length > 0) {
-        console.log(`[Client] Found ${streams.length} YouTube streams via title search`);
+        logger.log(`[Client] Found ${streams.length} YouTube streams via title search`);
         return streams;
       }
     } catch (error) {
@@ -588,8 +590,8 @@ async function fetchYouTubeTitleSearch(): Promise<Stream[]> {
  * Fetch YouTube streams via Invidious API
  * Combines both channel-based and title-based search for comprehensive coverage
  */
-async function fetchYouTubeStreams(): Promise<Stream[]> {
-  console.log("[Client] Fetching YouTube streams...");
+export async function fetchYouTubeStreams(): Promise<Stream[]> {
+  logger.log("[Client] Fetching YouTube streams...");
   
   // Fetch from both sources in parallel
   const [channelStreams, titleStreams] = await Promise.all([
@@ -607,8 +609,47 @@ async function fetchYouTubeStreams(): Promise<Stream[]> {
       allStreams.push(stream);
     }
   });
+
+  // Enrich with real viewer counts and live status
+  // Invidious search/channel APIs often return 0 viewers and stale live status
+  if (allStreams.length > 0) {
+    logger.log(`[Client] Fetching details for ${allStreams.length} YouTube streams to get viewer counts...`);
+    
+    const enrichedStreams = await Promise.all(allStreams.map(async (stream) => {
+      const videoId = stream.id.replace('youtube-', '');
+      
+      // Try to fetch details from Invidious instances
+      for (const instance of INVIDIOUS_INSTANCES) {
+        try {
+          const url = `${instance}/api/v1/videos/${videoId}`;
+          const response = await fetch(url, {
+            headers: { Accept: "application/json" },
+            signal: AbortSignal.timeout(3000),
+          });
+
+          if (!response.ok) continue;
+          const data = await response.json();
+
+          // Update stream with accurate data
+          return {
+            ...stream,
+            viewerCount: typeof data.viewCount === 'number' ? data.viewCount : stream.viewerCount,
+            isLive: typeof data.liveNow === 'boolean' ? data.liveNow : stream.isLive,
+          };
+        } catch {
+          continue;
+        }
+      }
+      return stream;
+    }));
+    
+    // Filter out streams that turned out to be offline
+    const liveStreams = enrichedStreams.filter(s => s.isLive);
+    logger.log(`[Client] Total YouTube streams: ${liveStreams.length} (after verification)`);
+    return liveStreams;
+  }
   
-  console.log(`[Client] Total YouTube streams: ${allStreams.length} (${channelStreams.length} from channels, ${titleStreams.length} from search)`);
+  logger.log(`[Client] Total YouTube streams: ${allStreams.length} (${channelStreams.length} from channels, ${titleStreams.length} from search)`);
   return allStreams;
 }
 
@@ -623,7 +664,7 @@ async function fetchYouTubeStreams(): Promise<Stream[]> {
 async function fetchKickStreams(): Promise<Stream[]> {
   // Kick API is blocked by their security policy from client-side requests
   // Returning empty array to avoid console spam from failed attempts
-  console.log("[Client] Kick API requires backend proxy (not available on static hosting)");
+  logger.log("[Client] Kick API requires backend proxy (not available on static hosting)");
   return [];
 }
 
@@ -633,7 +674,7 @@ async function fetchKickStreams(): Promise<Stream[]> {
  */
 export async function fetchAllStreams(): Promise<Stream[]> {
   try {
-    console.log("[Client] Fetching streams from all platforms...");
+    logger.log("[Client] Fetching streams from all platforms...");
 
     // Fetch from all platforms in parallel
     // Note: Kick disabled - requires backend proxy
@@ -648,20 +689,20 @@ export async function fetchAllStreams(): Promise<Stream[]> {
     results.forEach((result, index) => {
       const platformName = ["YouTube", "Twitch"][index];
       if (result.status === "fulfilled") {
-        console.log(`[Client] ${platformName}: ${result.value.length} streams`);
+        logger.log(`[Client] ${platformName}: ${result.value.length} streams`);
         allStreams.push(...result.value);
       } else {
-        console.warn(`[Client] ${platformName} failed:`, result.reason);
+        logger.warn(`[Client] ${platformName} failed:`, result.reason);
       }
     });
 
     // Sort by viewer count (highest first)
     allStreams.sort((a, b) => b.viewerCount - a.viewerCount);
 
-    console.log(`[Client] Total streams found: ${allStreams.length}`);
+    logger.log(`[Client] Total streams found: ${allStreams.length}`);
     return allStreams;
   } catch (error) {
-    console.error("[Client] Error fetching streams:", error);
+    logger.error("[Client] Error fetching streams:", error);
     return [];
   }
 }
