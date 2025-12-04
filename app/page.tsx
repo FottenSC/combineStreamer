@@ -49,18 +49,6 @@ export default function Home() {
 
       {/* Main Content */}
       <main className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 flex-1 w-full">
-        {/* Loading State */}
-        {isLoading && (
-          <div className="flex flex-col items-center justify-center py-20">
-            <div className="relative">
-              <div className="w-16 h-16 border-2 border-[rgba(218,185,110,0.3)] rounded-full" />
-              <Loader2 className="w-16 h-16 text-[#c9a84c] animate-spin absolute top-0 left-0" />
-            </div>
-            <p className="text-[#d4c4a0] text-xl mt-6 font-['Cinzel'] tracking-wide">Searching for streamers...</p>
-            <p className="text-[#706050] text-sm mt-2 italic">This may take a few moments</p>
-          </div>
-        )}
-
         {/* Error State */}
         {error && (
           <div className="text-center py-20 sc6-border rounded-sm max-w-lg mx-auto">
@@ -77,8 +65,8 @@ export default function Home() {
           </div>
         )}
 
-        {/* Stream List */}
-        {streams && <StreamList streams={streams} />}
+        {/* Stream List - always shown, handles its own loading state */}
+        {!error && <StreamList streams={streams || []} isLoading={isLoading} />}
       </main>
 
       {/* Footer */}

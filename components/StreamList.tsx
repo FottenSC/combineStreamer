@@ -3,12 +3,14 @@
 import { Stream, Platform } from "@/types/stream";
 import { StreamCard } from "@/components/StreamCard";
 import { useState } from "react";
+import { Loader2 } from "lucide-react";
 
 interface StreamListProps {
   streams: Stream[];
+  isLoading: boolean;
 }
 
-export function StreamList({ streams }: StreamListProps) {
+export function StreamList({ streams, isLoading }: StreamListProps) {
   const [selectedPlatforms, setSelectedPlatforms] = useState<Platform[]>([
     "twitch",
     "youtube",
@@ -43,46 +45,62 @@ export function StreamList({ streams }: StreamListProps) {
     <div className="space-y-8">
       {/* Filters Panel */}
       <div className="sc6-border rounded-sm p-5">
-        <div className="flex flex-col lg:flex-row gap-6 items-start lg:items-center justify-between">
-          {/* Platform Filter Buttons */}
-          <div className="flex flex-wrap gap-3">
-            <span className="text-[#807060] text-sm font-['Cinzel'] tracking-wider uppercase self-center mr-2">
-              Filter:
-            </span>
-            {(["twitch", "youtube"] as Platform[]).map((platform) => (
+        {isLoading ? (
+          <div className="flex flex-col lg:flex-row gap-6 items-start lg:items-center justify-between">
+            {/* Platform Filter Skeleton */}
+            <div className="flex flex-wrap gap-3">
+              <span className="text-[#807060] text-sm font-['Cinzel'] tracking-wider uppercase self-center mr-2">
+                Filter:
+              </span>
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="h-10 w-24 bg-[rgba(218,185,110,0.1)] rounded-sm animate-pulse" />
+              ))}
+            </div>
+            {/* Search Skeleton */}
+            <div className="w-full lg:w-64 h-11 bg-[rgba(218,185,110,0.1)] rounded-sm animate-pulse" />
+          </div>
+        ) : (
+          <div className="flex flex-col lg:flex-row gap-6 items-start lg:items-center justify-between">
+            {/* Platform Filter Buttons */}
+            <div className="flex flex-wrap gap-3">
+              <span className="text-[#807060] text-sm font-['Cinzel'] tracking-wider uppercase self-center mr-2">
+                Filter:
+              </span>
+              {(["twitch", "youtube"] as Platform[]).map((platform) => (
+                <button
+                  key={platform}
+                  onClick={() => togglePlatform(platform)}
+                  className={`sc6-button px-4 py-2 rounded-sm ${
+                    selectedPlatforms.includes(platform) ? 'active' : ''
+                  }`}
+                >
+                  {platform.charAt(0).toUpperCase() + platform.slice(1)}
+                  <span className="ml-2 opacity-60">({platformStats[platform]})</span>
+                </button>
+              ))}
+              {/* Kick disabled - requires backend proxy */}
               <button
-                key={platform}
-                onClick={() => togglePlatform(platform)}
-                className={`sc6-button px-4 py-2 rounded-sm ${
-                  selectedPlatforms.includes(platform) ? 'active' : ''
-                }`}
+                disabled
+                className="sc6-button px-4 py-2 rounded-sm opacity-50 cursor-not-allowed"
+                title="Kick API requires backend proxy (coming soon)"
               >
-                {platform.charAt(0).toUpperCase() + platform.slice(1)}
-                <span className="ml-2 opacity-60">({platformStats[platform]})</span>
+                <span className="line-through">Kick</span>
+                <span className="ml-2 opacity-60">(0)</span>
               </button>
-            ))}
-            {/* Kick disabled - requires backend proxy */}
-            <button
-              disabled
-              className="sc6-button px-4 py-2 rounded-sm opacity-50 cursor-not-allowed"
-              title="Kick API requires backend proxy (coming soon)"
-            >
-              <span className="line-through">Kick</span>
-              <span className="ml-2 opacity-60">(0)</span>
-            </button>
-          </div>
+            </div>
 
-          {/* Search */}
-          <div className="w-full lg:w-auto">
-            <input
-              type="text"
-              placeholder="Search for a streamer..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="sc6-input w-full lg:w-64 rounded-sm px-4 py-2.5 text-base"
-            />
+            {/* Search */}
+            <div className="w-full lg:w-auto">
+              <input
+                type="text"
+                placeholder="Search for a streamer..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="sc6-input w-full lg:w-64 rounded-sm px-4 py-2.5 text-base"
+              />
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* Stats Display */}

@@ -1,0 +1,86 @@
+{
+  "timestamp": "2025-12-03T12:32:18.388677",
+  "channel_id": "UCJ0Y3WUgX0eqgQ76mz1PaFA",
+  "results": [
+    {
+      "instance": "https://y.com.sb",
+      "url": "https://y.com.sb/api/v1/channels/UCJ0Y3WUgX0eqgQ76mz1PaFA/streams",
+      "success": false,
+      "status_code": 500,
+      "error": "HTTP 500",
+      "total_videos": 0,
+      "live_streams": 0,
+      "stream_titles": []
+    },
+    {
+      "instance": "https://invidious.slipfox.xyz",
+      "url": "https://invidious.slipfox.xyz/api/v1/channels/UCJ0Y3WUgX0eqgQ76mz1PaFA/streams",
+      "success": false,
+      "status_code": 403,
+      "error": "HTTP 403",
+      "total_videos": 0,
+      "live_streams": 0,
+      "stream_titles": []
+    },
+    {
+      "instance": "https://invidious.projectsegfau.lt",
+      "url": "https://invidious.projectsegfau.lt/api/v1/channels/UCJ0Y3WUgX0eqgQ76mz1PaFA/streams",
+      "success": false,
+      "status_code": null,
+      "error": "Connection error: HTTPSConnectionPool(host='invidious.projectsegfau.lt', port=443): Max retries exceeded with url: /api/v1/channels/UCJ0Y3WUgX0eqgQ76mz1PaFA/streams (Caused by NameResolutionError(\"<urllib3.connection.HTTPSConnection object at 0x00000197C7A9EE10>: Failed to resolve 'invidious.projectsegfau.lt' ([Errno 11002] getaddrinfo failed)\"))",
+      "total_videos": 0,
+      "live_streams": 0,
+      "stream_titles": []
+    },
+    {
+      "instance": "https://invidious.privacyredirect.com",
+      "url": "https://invidious.privacyredirect.com/api/v1/channels/UCJ0Y3WUgX0eqgQ76mz1PaFA/streams",
+      "success": false,
+      "status_code": null,
+      "error": "Connection error: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))",
+      "total_videos": 0,
+      "live_streams": 0,
+      "stream_titles": []
+    },
+    {
+      "instance": "https://inv.riverside.rocks",
+      "url": "https://inv.riverside.rocks/api/v1/channels/UCJ0Y3WUgX0eqgQ76mz1PaFA/streams",
+      "success": false,
+      "status_code": 404,
+      "error": "HTTP 404",
+      "total_videos": 0,
+      "live_streams": 0,
+      "stream_titles": []
+    },
+    {
+      "instance": "https://invidious.snopyta.org",
+      "url": "https://invidious.snopyta.org/api/v1/channels/UCJ0Y3WUgX0eqgQ76mz1PaFA/streams",
+      "success": false,
+      "status_code": 200,
+      "error": "Request error: Expecting value: line 1 column 1 (char 0)",
+      "total_videos": 0,
+      "live_streams": 0,
+      "stream_titles": []
+    },
+    {
+      "instance": "https://yewtu.be",
+      "url": "https://yewtu.be/api/v1/channels/UCJ0Y3WUgX0eqgQ76mz1PaFA/streams",
+      "success": false,
+      "status_code": 403,
+      "error": "HTTP 403",
+      "total_videos": 0,
+      "live_streams": 0,
+      "stream_titles": []
+    },
+    {
+      "instance": "https://invidious.kavin.rocks",
+      "url": "https://invidious.kavin.rocks/api/v1/channels/UCJ0Y3WUgX0eqgQ76mz1PaFA/streams",
+      "success": false,
+      "status_code": 403,
+      "error": "HTTP 403",
+      "total_videos": 0,
+      "live_streams": 0,
+      "stream_titles": []
+    }
+  ]
+}

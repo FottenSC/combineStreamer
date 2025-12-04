@@ -409,40 +409,134 @@ const INVIDIOUS_INSTANCES = [
   "https://invidious.privacyredirect.com",
 ];
 
+// SoulCalibur VI related channel IDs on YouTube
+const SC6_CHANNELS = [
+  //"UC2eOo8z3dhPbBkyqHbnxm6A", // JingleBells_Gaming
+  "UC1sGbuNePbTWAJRDwVf4VvA", // 575
+  "UCrEXe02-l5d18fl-f-lgEFw", // AkeoPo
+  "UCpdMXqdsqT36Glc_7MC1qmw", // Yuttoto
+];
+
 /**
- * Fetch YouTube streams via Invidious API (client-side)
- * Note: Some instances may block CORS requests
+ * Fetch YouTube streams from known SoulCalibur VI channels
+ * Uses specific channel IDs to find streams via Invidious API
  */
-async function fetchYouTubeStreams(): Promise<Stream[]> {
-  // Multiple search queries to catch variations and typos
+async function fetchYouTubeGameChannelStreams(): Promise<Stream[]> {
+  const allStreams: Stream[] = [];
+  const processedVideoIds = new Set<string>();
+
+  for (const channelId of SC6_CHANNELS) {
+    let channelSuccess = false;
+
+    for (const instance of INVIDIOUS_INSTANCES) {
+      if (channelSuccess) break;
+
+      try {
+        const url = `${instance}/api/v1/channels/${channelId}/streams`;
+        const response = await fetch(url, {
+          headers: { Accept: "application/json" },
+          signal: AbortSignal.timeout(10000),
+        });
+
+        if (!response.ok) continue;
+
+        const data = await response.json();
+        
+        // Handle both array and object response formats
+        let videos: any[] = [];
+        if (Array.isArray(data)) {
+          videos = data;
+        } else if (typeof data === 'object' && data !== null && Array.isArray((data as any).videos)) {
+          videos = (data as any).videos;
+        } else {
+          continue;
+        }
+
+        // Filter for live streams using heuristics
+        // Invidious /streams endpoint often has stale liveNow data
+        // Consider it live if: liveNow=true OR publishedText indicates recent activity
+        const channelStreams: Stream[] = videos
+          .map((video: { 
+            videoId: string; 
+            author: string; 
+            authorThumbnails?: { url: string }[]; 
+            title: string; 
+            videoThumbnails?: { url: string }[]; 
+            viewCount?: number;
+            liveNow?: boolean;
+            publishedText?: string;
+          }) => {
+            const isRecentStream = video.publishedText?.match(/\d+\s+(second|minute)s?\s+ago/i);
+            const isLive = video.liveNow === true || !!isRecentStream;
+            
+            return {
+              id: `youtube-${video.videoId}`,
+              platform: "youtube" as Platform,
+              streamerName: video.author,
+              profilePictureUrl: video.authorThumbnails?.[0]?.url,
+              title: video.title,
+              thumbnailUrl: video.videoThumbnails?.[0]?.url || `https://i.ytimg.com/vi/${video.videoId}/mqdefault.jpg`,
+              viewerCount: video.viewCount || 0,
+              streamUrl: `https://www.youtube.com/watch?v=${video.videoId}`,
+              isLive: isLive,
+            };
+          })
+          .filter((stream: Stream) => stream.isLive);
+
+        // Add unique streams
+        channelStreams.forEach(stream => {
+          if (!processedVideoIds.has(stream.id)) {
+            processedVideoIds.add(stream.id);
+            allStreams.push(stream);
+          }
+        });
+        
+        if (channelStreams.length > 0) {
+          console.log(`[Client] Found ${channelStreams.length} live streams from channel ${channelId}`);
+        }
+        
+        channelSuccess = true;
+      } catch (error) {
+        continue;
+      }
+    }
+  }
+
+  return allStreams;
+}
+
+/**
+ * Search for YouTube live streams by title using Invidious API
+ */
+async function fetchYouTubeTitleSearch(): Promise<Stream[]> {
   const searchQueries = ["soulcalibur 6", "soul calibur 6", "soulcalibur vi", "sc6", "calibur 6"];
 
+  
   for (const instance of INVIDIOUS_INSTANCES) {
     try {
-      // Search with all queries in parallel and combine results
+      // Search with all queries in parallel
       const searchPromises = searchQueries.map(async (query) => {
-        const url = `${instance}/api/v1/search?q=${encodeURIComponent(query)}&type=video&features=live`;
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 8000);
+        // Enhanced search with filters:
+        // - type=video: Only videos
+        // - features=live: Only live streams
+        // - sort=views: Most popular first
+        // - date=week: Recent uploads only
+        const url = `${instance}/api/v1/search?q=${encodeURIComponent(query)}&type=video&features=live&sort=views`;
         
         try {
           const response = await fetch(url, {
             headers: { Accept: "application/json" },
-            signal: controller.signal,
+            signal: AbortSignal.timeout(8000),
           });
-          clearTimeout(timeoutId);
           
           if (!response.ok) return [];
           const data = await response.json();
           return Array.isArray(data) ? data : [];
         } catch {
-          clearTimeout(timeoutId);
           return [];
         }
       });
 
-      console.log(`[Client] Trying Invidious instance ${instance} with ${searchQueries.length} queries...`);
-      
       const results = await Promise.all(searchPromises);
       const allResults = results.flat();
       
@@ -454,15 +548,19 @@ async function fetchYouTubeStreams(): Promise<Stream[]> {
         return true;
       });
 
-      if (uniqueResults.length === 0) {
-        console.warn(`[Client] No results from ${instance}`);
-        continue;
-      }
+      if (uniqueResults.length === 0) continue;
 
       const streams: Stream[] = uniqueResults
         .filter((video: { liveNow?: boolean }) => video.liveNow === true)
         .slice(0, 20)
-        .map((video: { videoId: string; author: string; authorId?: string; authorThumbnails?: { url: string }[]; title: string; videoThumbnails?: { url: string }[]; viewCount?: number }) => ({
+        .map((video: { 
+          videoId: string; 
+          author: string; 
+          authorThumbnails?: { url: string }[]; 
+          title: string; 
+          videoThumbnails?: { url: string }[]; 
+          viewCount?: number;
+        }) => ({
           id: `youtube-${video.videoId}`,
           platform: "youtube" as Platform,
           streamerName: video.author,
@@ -474,17 +572,46 @@ async function fetchYouTubeStreams(): Promise<Stream[]> {
           isLive: true,
         }));
 
-      console.log(`[Client] Found ${streams.length} YouTube streams via ${instance}`);
-      return streams;
+      if (streams.length > 0) {
+        console.log(`[Client] Found ${streams.length} YouTube streams via title search`);
+        return streams;
+      }
     } catch (error) {
-      console.warn(`[Client] Failed to fetch from ${instance}:`, error);
       continue;
     }
   }
 
-  console.warn("[Client] All Invidious instances failed (may be CORS blocked)");
   return [];
 }
+
+/**
+ * Fetch YouTube streams via Invidious API
+ * Combines both channel-based and title-based search for comprehensive coverage
+ */
+async function fetchYouTubeStreams(): Promise<Stream[]> {
+  console.log("[Client] Fetching YouTube streams...");
+  
+  // Fetch from both sources in parallel
+  const [channelStreams, titleStreams] = await Promise.all([
+    fetchYouTubeGameChannelStreams(),
+    fetchYouTubeTitleSearch(),
+  ]);
+  
+  // Combine and deduplicate
+  const seenIds = new Set<string>();
+  const allStreams: Stream[] = [];
+  
+  [...channelStreams, ...titleStreams].forEach(stream => {
+    if (!seenIds.has(stream.id)) {
+      seenIds.add(stream.id);
+      allStreams.push(stream);
+    }
+  });
+  
+  console.log(`[Client] Total YouTube streams: ${allStreams.length} (${channelStreams.length} from channels, ${titleStreams.length} from search)`);
+  return allStreams;
+}
+
 
 /**
  * Fetch Kick streams for SoulCalibur VI
