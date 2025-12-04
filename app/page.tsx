@@ -63,40 +63,43 @@ export default function Home() {
       <div className="light-rays" />
       
       {/* Navigation Header */}
-      <nav className="relative z-50 border-b border-[rgba(218,185,110,0.2)] bg-gradient-to-b from-[#1a1610]/98 to-[#0f0d0a]/95 backdrop-blur-sm sticky top-0">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            {/* Logo */}
-            <div className="flex items-center gap-4">
-              <img 
-                src="/Horseface.png" 
-                alt="SC6 Logo" 
-                className="h-12 w-auto drop-shadow-[0_0_10px_rgba(218,185,110,0.3)]"
-              />
-              <div className="hidden sm:block h-8 w-px bg-gradient-to-b from-transparent via-[rgba(218,185,110,0.3)] to-transparent" />
-              <span className="hidden sm:block text-[#c9a84c] font-['Cinzel'] text-base tracking-[0.15em] uppercase">
-                Zoetrope Stream Finder
-              </span>
+      <header>
+        <nav className="relative z-50 border-b border-[rgba(218,185,110,0.2)] bg-gradient-to-b from-[#1a1610]/98 to-[#0f0d0a]/95 backdrop-blur-sm sticky top-0">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex items-center justify-between h-16">
+              {/* Logo */}
+              <div className="flex items-center gap-4">
+                <img 
+                  src="/Horseface.png" 
+                  alt="SoulCalibur 6 Horseface Logo - SC6 Stream Finder" 
+                  className="h-12 w-auto drop-shadow-[0_0_10px_rgba(218,185,110,0.3)]"
+                />
+                <div className="hidden sm:block h-8 w-px bg-gradient-to-b from-transparent via-[rgba(218,185,110,0.3)] to-transparent" />
+                <h1 className="hidden sm:block text-[#c9a84c] font-['Cinzel'] text-base tracking-[0.15em] uppercase">
+                  Zoetrope Stream Finder
+                </h1>
+              </div>
+              
+              {/* Refresh Button */}
+              <button
+                onClick={handleRefresh}
+                disabled={isFetching}
+                className="sc6-button px-4 py-2 rounded-sm flex items-center gap-2 relative overflow-hidden"
+                aria-label={showSuccess ? 'Streams updated successfully' : isFetching ? 'Refreshing streams' : 'Refresh stream list'}
+              >
+                {showSuccess ? (
+                  <Check className="w-4 h-4 text-[#5a9a5a] animate-in zoom-in duration-200" />
+                ) : (
+                  <RefreshCw className={`w-4 h-4 transition-transform ${isFetching ? 'animate-spin' : ''}`} />
+                )}
+                <span className="hidden sm:inline">
+                  {showSuccess ? 'Updated' : isFetching ? 'Refreshing...' : 'Refresh'}
+                </span>
+              </button>
             </div>
-            
-            {/* Refresh Button */}
-            <button
-              onClick={handleRefresh}
-              disabled={isFetching}
-              className="sc6-button px-4 py-2 rounded-sm flex items-center gap-2 relative overflow-hidden"
-            >
-              {showSuccess ? (
-                <Check className="w-4 h-4 text-[#5a9a5a] animate-in zoom-in duration-200" />
-              ) : (
-                <RefreshCw className={`w-4 h-4 transition-transform ${isFetching ? 'animate-spin' : ''}`} />
-              )}
-              <span className="hidden sm:inline">
-                {showSuccess ? 'Updated' : isFetching ? 'Refreshing...' : 'Refresh'}
-              </span>
-            </button>
           </div>
-        </div>
-      </nav>
+        </nav>
+      </header>
 
       {/* Main Content */}
       <main className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 flex-1 w-full">

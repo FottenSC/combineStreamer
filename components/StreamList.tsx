@@ -46,12 +46,12 @@ export function StreamList({ streams, platformLoadingStates }: StreamListProps) 
   const totalViewers = filteredStreams.reduce((acc, s) => acc + s.viewerCount, 0);
 
   return (
-    <div className="space-y-8">
+    <section className="space-y-8" aria-label="Live SoulCalibur 6 Streams">
       {/* Filters Panel */}
-      <div className="sc6-border rounded-sm p-5">
+      <div className="sc6-border rounded-sm p-5" role="search">
         <div className="flex flex-col lg:flex-row gap-6 items-start lg:items-center justify-between">
           {/* Platform Filter Buttons */}
-          <div className="flex flex-wrap gap-3">
+          <div className="flex flex-wrap gap-3" role="group" aria-label="Platform filters">
             <span className="text-[#807060] text-sm font-['Cinzel'] tracking-wider uppercase self-center mr-2">
               Filter:
             </span>
@@ -62,6 +62,8 @@ export function StreamList({ streams, platformLoadingStates }: StreamListProps) 
                 className={`sc6-button px-4 py-2 rounded-sm ${
                   selectedPlatforms.includes(platform) ? 'active' : ''
                 }`}
+                aria-pressed={selectedPlatforms.includes(platform)}
+                aria-label={`${selectedPlatforms.includes(platform) ? 'Hide' : 'Show'} ${platform} streams (${platformStats[platform]} available)`}
               >
                 {platform.charAt(0).toUpperCase() + platform.slice(1)}
                 <span className="ml-2 opacity-60">
@@ -78,6 +80,7 @@ export function StreamList({ streams, platformLoadingStates }: StreamListProps) 
               disabled
               className="sc6-button px-4 py-2 rounded-sm opacity-50 cursor-not-allowed"
               title="Kick API requires backend proxy (coming soon)"
+              aria-label="Kick streams not available"
             >
               <span className="line-through">Kick</span>
               <span className="ml-2 opacity-60">(0)</span>
@@ -87,11 +90,12 @@ export function StreamList({ streams, platformLoadingStates }: StreamListProps) 
           {/* Search */}
           <div className="w-full lg:w-auto">
             <input
-              type="text"
+              type="search"
               placeholder="Search for a streamer..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="sc6-input w-full lg:w-64 rounded-sm px-4 py-2.5 text-base"
+              aria-label="Search streams by streamer name or title"
             />
           </div>
         </div>
@@ -100,7 +104,7 @@ export function StreamList({ streams, platformLoadingStates }: StreamListProps) 
       {/* Stats Display */}
       <div className="flex items-center justify-center gap-4 text-center">
         <div className="gold-separator flex-1 max-w-[100px]" />
-        <div className="flex items-center gap-3">
+        <h2 className="flex items-center gap-3">
           <span className="text-[#a09080] text-base font-['Cormorant_Garamond'] italic">
             Showing
           </span>
@@ -118,7 +122,7 @@ export function StreamList({ streams, platformLoadingStates }: StreamListProps) 
               </span>
             </>
           )}
-        </div>
+        </h2>
         <div className="gold-separator flex-1 max-w-[100px]" />
       </div>
 
@@ -166,6 +170,6 @@ export function StreamList({ streams, platformLoadingStates }: StreamListProps) 
           )}
         </>
       )}
-    </div>
+    </section>
   );
 }
